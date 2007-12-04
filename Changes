@@ -1,0 +1,32 @@
+Revision history for Perl extension SVN::S4
+
+The contributors that suggested a given feature are shown in [].  [by ...]
+indicates the contributor was also the author of the fix; Thanks!
+
+* SVN::S4 1.020 12/3/2007
+
+**	First major release to CPAN.
+
+* SVN::S4 1.010 3/8/2007
+
+**	First external alpha release.
+
+* SVN::S4 1.000 9/12/2006
+
+**	First code written.
+
+----------------------------------------------------------------------
+$Id: Changes 48237 2007-12-04 19:35:20Z wsnyder $
+DESCRIPTION: Documentation on change history for this package
+----------------------------------------------------------------------
+
+This uses outline mode in Emacs.  See C-h m [M-x describe-mode].
+
+Copyright 2006-2007 by Wilson Snyder.  This program is free software;
+you can redistribute it and/or modify it under the terms of either the GNU
+General Public License or the Perl Artistic License.
+
+Local variables:
+mode: outline
+paragraph-separate: "[ 	\f\n]*$"
+end:

@@ -1,0 +1,272 @@
+SVN-fs-dump-format-version: 2
+
+UUID: 822e817e-3d20-0410-b366-c7e96ed15055
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2006-10-20T12:46:34.357990Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:49:14.511095Z
+PROPS-END
+
+Node-path: top
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 2
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:49:20.530339Z
+PROPS-END
+
+Node-path: top/trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 3
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:49:24.457548Z
+PROPS-END
+
+Node-path: top/trunk/tdir1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 4
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:49:25.965765Z
+PROPS-END
+
+Node-path: top/trunk/tdir2
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 5
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:49:32.133373Z
+PROPS-END
+
+Node-path: top/trunk/tdir1/tsub1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 6
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:49:34.743087Z
+PROPS-END
+
+Node-path: top/trunk/tdir1/tsub2
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 7
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:51:33.746158Z
+PROPS-END
+
+Node-path: top/branches
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 8
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:51:36.828891Z
+PROPS-END
+
+Node-path: top/tags
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Revision-number: 9
+Prop-content-length: 115
+Content-length: 115
+
+K 7
+svn:log
+V 13
+Initial files
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2006-10-20T12:53:44.579637Z
+PROPS-END
+
+Node-path: top/trunk/tdir2/tfile1
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 18
+Text-content-md5: 76f42c06eb633cea3c527faab57cfd65
+Content-length: 28
+
+PROPS-END
+File tdir2/tfile1
+
+
+Node-path: top/trunk/tdir2/tfile2
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 23
+Text-content-md5: 54e37d5eaaec03ff6462f4503b685c6d
+Content-length: 33
+
+PROPS-END
+$Id:$
+File tdir2/tfile2
+

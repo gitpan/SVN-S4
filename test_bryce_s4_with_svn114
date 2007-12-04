@@ -1,0 +1,5 @@
+#!/usr/bin/perl
+$S4TOP="/home/denney/src/perltools/SVN-S4";
+$ENV{PERL5LIB}="$S4TOP/lib:$ENV{PERL5LIB}";
+$SVNTOP="$S4TOP/svn114branch";
+system ("$S4TOP/s4","--svn=$SVNTOP/subversion/clients/cmdline/svn",@ARGV);

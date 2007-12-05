@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: 50_makerepo.t 33487 2007-03-08 19:31:46Z wsnyder $
+# $Id: 50_makerepo.t 48292 2007-12-05 16:48:44Z denney $
 # DESCRIPTION: Perl ExtUtils: Type 'make test' to test this package
 #
 # Copyright 2006-2007 by Wilson Snyder.  This program is free software;

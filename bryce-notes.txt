@@ -46,6 +46,11 @@ FAIL:  s4_tests.py 5: checkout view2 with with view lines reversed
 When a deep switchpoint disappears, it no longer removes the intermediate stages.
 s4: Remove unused switchpoint X/Y/Z/G
 
+- bug:
+  1. s4 co out a tree that has hw pointing to hw, and hw/ice9a pointing to void.
+  2. Change viewspec so that hw/ice9a is no longer mentioned.
+  3. s4 update
+  Really, s4 should change hw/ice9a to hw/ice9a, but instead it leaves it as void.
 
 - potential bug:
   Whenever pieces of S4 call other pieces of S4, there is the danger
@@ -54,17 +59,34 @@ s4: Remove unused switchpoint X/Y/Z/G
   operation, e.g. $self->default_revision() which calls which_rev() only the
   first time, and then caches the result for all subsequent times.
 
+- s4 snap does not handle files made by "svn mv" or "svn cp" files.
+  It just runs svn diff and stores their diff.
+  It does not notice that they have been added and came from some other place
+  in the tree.
 
 - ViewSpec.pm: svn cat $fn does not have -rREV
 
+- BUG: When s4 sees a command with "-r HEAD", it must sample the rev number of HEAD
+  exactly one time, and afterward use that revision number only.  If we're doing
+  anything more involved than a single fallback command, we must do $rev=which_rev()
+  and be careful to use it everywhere.
 
+  This is the svn_unknowns bug.
+
+
+- svn diff in an area full of switches does not always traverse the switches.
+  I think you see modified files, but what about svn diff -r12345.
+  To make a diff of a tree with switches, I ended up with a nasty script
+      svn diff -N -r27893
+      dirs=$(find . -maxdepth 1 -type d | grep -v .svn | grep -v '^\.$')
+      svn diff -r27893 ${dirs}
 
 
 
 To do:
 - BUG: checking the .svn/format file after creating a switchpoint:
   needs NFS existence check in there somewhere.
-- (DONE)
+- (IN PROGRESS, see patch.arg-parsing-nov-02)
   It's nearly impossible s4 operations to call other s4 operations inside perl,
   For example, in scrub I want to call update.  But it should be s4 update, not
   svn update.
@@ -76,17 +98,15 @@ To do:
   svn copy SRC DST, the order of opts is critical.
 - s4 scrub blows away switches, even the ones created by s4 checkout.
   But when it's modified to not blow away switches, it does not produce a pristine
-  tree anymore!  What to do?
+  tree anymore!
 
 
-- expand_viewspec_vars prints horrendous messages if expanded variables are not defined.
-- (DONE) s4 snap cannot recreate trees with manufactured switchpoints.
+- s4 snap cannot recreate trees with manufactured switchpoints.
   But if I make it run "s4 switch" and do the next item on my to-do list, then it can.
-- (DONE) svn switch URL PATH should work even if PATH doesn't exist.
+- svn switch URL PATH should work even if PATH doesn't exist.
   We know how to do that. :)
 - Integrate rsvn
-  - ssh fs12 "$SHELL /sicortex/common/bin/setenv_run_s4 help update"
-- (DONE) svn switch between views should parse the viewspec, etc.  Then maybe people
+- svn switch between views should parse the viewspec, etc.  Then maybe people
   can migrate their old trees to a s4 view cleanly (?)
 - Try to checkout/update/switch in a way that never checks out anything that you didn't
   ask for.  Right now, switches underneath switches cause this.

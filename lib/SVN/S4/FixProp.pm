@@ -1,4 +1,4 @@
-# $Id: FixProp.pm 48237 2007-12-04 19:35:20Z wsnyder $
+# $Id: FixProp.pm 48306 2007-12-05 18:20:44Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -26,7 +26,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.020';
+our $VERSION = '1.021';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (

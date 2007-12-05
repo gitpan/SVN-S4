@@ -4,7 +4,7 @@
 @settitle Perl SVN::S4 Installation
 @c %**end of header
 
-@c $Id: readme.texi 48246 2007-12-04 20:23:01Z wsnyder $
+@c $Id: readme.texi 48293 2007-12-05 16:57:37Z denney $
 @c DESCRIPTION: TexInfo: DOCUMENT source run through texinfo to produce README file
 @c Use 'make README' to produce the output file
 @c Before release, run C-u C-c C-u C-a (texinfo-all-menus-update)
@@ -18,9 +18,9 @@ This is the SVN::S4 Perl Package.
 * Copyright::                   
 * Description::                 
 * Obtaining Distribution::      
+* Known Bugs::                  
 * Supported Systems::           
 * Installation::                
-* Differences from S4-1.6::     
 @end menu
 
 @node Copyright, Description, Top, Top
@@ -44,7 +44,7 @@ snapshot areas and cleanup ignored files. You can also create views
 that consist of different repository areas, and deal with them as if
 it was a larger checkout.
 
-@node Obtaining Distribution, Supported Systems, Description, Top
+@node Obtaining Distribution, Known Bugs, Description, Top
 @section Obtaining Distribution
 
 The latest version is available at 
@@ -53,7 +53,7 @@ The latest version is available at
 Download the latest package from that site, and decompress.
 @samp{gunzip SVN-S4_version.tar.gz ; tar xvf SVN-S4_version.tar}
 
-@node Known Bugs, Installation, Obtaining Distribution, Top
+@node Known Bugs, Supported Systems, Obtaining Distribution, Top
 @section Known Bugs
 
 SVN::S4 relys on some obscure features of Subversion, in that s4 needs
@@ -61,7 +61,7 @@ to modify the .svn directory to create empty directories and svn
 externals that switch to them.  This has only been tested on
 Subversion 1.1 and 1.2, newer versions will probably require patching.
 
-@node Supported Systems, Installation, Obtaining Distribution, Top
+@node Supported Systems, Installation, Known Bugs, Top
 @section Supported Systems
 
 This version of SVN::S4 has been built and tested on:
@@ -74,7 +74,7 @@ It should run on any Unix system with appropriate releases of
 Subversion (see above).  Minor porting may be required for Windows
 systems.
 
-@node Installation, Supported Systems, Top
+@node Installation,  , Supported Systems, Top
 @section Installation
 
 @enumerate

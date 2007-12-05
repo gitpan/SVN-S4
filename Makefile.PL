@@ -1,4 +1,4 @@
-# $Id: Makefile.PL 48235 2007-12-04 19:33:43Z wsnyder $
+# $Id: Makefile.PL 48305 2007-12-05 18:20:20Z wsnyder $
 # DESCRIPTION: Perl ExtUtils: Type 'perl Makefile.PL' to create a Makefile for this package
 #
 # Copyright 2006-2007 by Wilson Snyder.  This program is free software;
@@ -40,6 +40,13 @@ maintainer-copy:
 maintainer-clean: distclean
 	-rm -rf README Makefile MANIFEST.bak \$(MAKEFILE_OLD)
 ";
+}
+
+{
+    local $! = undef;
+    my $ver = `svn --version`; ($?==0) or die "\n%Error: 'svn' must be installed to be useful\n";
+    $ver =~ s/\n.*$//omg;
+    print "Installed subversion: $ver\n";
 }
 
 ## Remember to upgrade version number!

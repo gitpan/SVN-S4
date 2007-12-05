@@ -1,4 +1,4 @@
-# $Id: S4.pm 48237 2007-12-04 19:35:20Z wsnyder $
+# $Id: S4.pm 48306 2007-12-05 18:20:44Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -35,7 +35,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.020';
+our $VERSION = '1.021';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -106,7 +106,7 @@ sub new {
     my $self = {# Overridable by user
 		quiet => 0,
 		dryrun => undef,
-		debug => 0,
+		debug => $Debug,
 		revision => undef,  # default rev for viewspec operations
 		s4_binary => "s4",    
 		svn_binary => "svn",   # overridden by command line or env variable
@@ -116,7 +116,6 @@ sub new {
 		parse_viewspec_include_depth => 0,
 		viewspec_vars => {}, # empty hash ref
 		void_url => undef,   # cached copy of the URL of the void dir
-		viewspec_tree => {}, # dir tree giving desired rev and url of switchpoints
 		# Internals
 		#_client => undef,
 		#_pool => undef,
@@ -157,27 +156,6 @@ sub pool { return $_[0]->{_pool}; }
 
 sub open {
     my $self = shift;
-}
-
-sub print {
-    my $self = shift;
-    my $string = join (" ", @_);
-    print "s4: $string\n";
-}
-
-sub dbg {
-    my $self = shift;
-    if ($self->debug) {
-        my $string = join (" ", @_);
-        print "s4: $string\n";
-    }
-}
-
-sub error {
-    my $self = shift;
-    my $string = shift;
-    warn "%Error: $string\n";
-    exit 1;
 }
 
 # remove ./ from the front of a filename
@@ -269,7 +247,7 @@ sub run_svn {
 
 sub hide_all_output {
     my $self = shift;
-    if ($self->debug > 1) {
+    if ($self->debug) {
         print "hide_all_output: If I wasn't in debug mode, I would hide stdout and stderr now.\n";
 	return;
     }
@@ -282,7 +260,7 @@ sub hide_all_output {
 
 sub restore_all_output {
     my $self = shift;
-    if ($self->debug > 1) {
+    if ($self->debug) {
         print "restore_all_output: If I wasn't in debug mode, I would restore stdout and stderr now.\n";
 	return;
     }
@@ -342,9 +320,9 @@ sub file_url {
     my %params = (#filename =>
                   assert_exists=>1,
 		  @_);
-    print "\tfile_url $params{filename}\n" if $self->debug > 2;
+    print "\tfile_url $params{filename}\n" if $Debug;
     my $filename = $self->abs_filename($params{filename});
-    print "absolute filename = $filename\n" if $self->debug > 2;
+    print "absolute filename = $filename\n" if $Debug;
     $self->open();
     return undef if $filename =~ m!\.old($|/)!;
     $self->hide_all_output();
@@ -358,7 +336,7 @@ sub file_url {
     if ($params{assert_exists} && $error) {
         die "%Error: file_url: could not find url for path $filename";
     }
-    print "file_url: url is $url\n" if $self->debug && $url;
+    print "url is $url\n" if $self->debug;
     return $url;
 }
 
@@ -368,7 +346,7 @@ sub is_file_personal {
 		  user => $ENV{USER},
 		  @_);
     # Is file owned by specified user?
-    print "\tsvn_file_personal $params{filename}\n" if $self->debug;
+    print "\tsvn_file_personal $params{filename}\n" if $Debug;
     my $filename = $self->clean_filename($params{filename});
     $self->open();
     my $status;
@@ -402,12 +380,12 @@ sub is_file_in_repo {
                   revision=>'HEAD',
                   @_);
     my $url = $params{url};
-    print "is_file_in_repo with url='$url'\n" if $self->debug > 2;
+    print "is_file_in_repo with url='$url'\n" if $self->debug;
     $self->hide_all_output();
     my $exists = 0;
     eval {
         my $proplist = $self->client->proplist($url, $params{revision}, 0);
-	print "proplist returned, so the url must have existed\n" if $self->debug > 2;
+	print "proplist returned, so the url must have existed\n" if $self->debug;
 	$exists = 1;
     };
     $self->restore_all_output();
@@ -493,9 +471,8 @@ sub void_url {
     my $self = shift;
     my %params = (#url=>,
                   @_);
-    print "void_url url=$params{url}\n" if $self->debug > 1;
+    print "void_url url=$params{url}\n" if $self->debug;
     return $self->{void_url} if $self->{void_url};  # use cached copy
-    die "%Error: void_url called without a url, and no cached result" if !defined $params{url};
     my ($proto,$server,$path) = $params{url} =~ /(.*:\/{2,3})([^\/]+)(\/.*)/;
     die "%Error: could not parse url $params{url}" if !defined $proto || !defined $server || !defined $path;
     my $pathbuild = "$proto$server";
@@ -505,7 +482,7 @@ sub void_url {
         $pathbuild .= "/" if $pathpart ne '';
 	$pathbuild .= $pathpart;
 	my $url = "$pathbuild/void";
-	print "Try URL $url\n" if $self->debug > 1;
+	print "Try URL $url\n" if $self->debug;
 	if ($self->is_file_in_repo(url=>$url)) {
 	    $self->{void_url} = $url;  # found it! cache for next time.
 	    return $url;                # I'm just gonna assume it's a directory
@@ -542,7 +519,7 @@ sub propget_string {
 		  @_);
     # Return property value for given file/propname
     my $filename = $self->clean_filename($params{filename});
-    print "\tsvn_propget $filename  $params{propname}\n" if $self->debug;
+    print "\tsvn_propget $filename  $params{propname}\n" if $Debug;
 
     $self->open();
     my $pl = $self->client->proplist($filename, undef, 0);

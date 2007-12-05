@@ -1,4 +1,4 @@
-# $Id: ViewSpec.pm 48237 2007-12-04 19:35:20Z wsnyder $
+# $Id: ViewSpec.pm 48306 2007-12-05 18:20:44Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -13,16 +13,6 @@
 #
 ######################################################################
 #
-# One of the important data structures in this file is the viewspec_tree,
-# which is a tree of directory objects, one for each item described in
-# the viewspec file.  Later, when we're deciding which checkout/update/switch
-# operations are needed, some other directory objects are added that represent
-# other dirs in the repository.  Here is the structure
-#
-# Top of tree is: $self->{viewspec_tree}
-#
-# Each node is a hashref with a few common keys:
-#
 
 package SVN::S4::ViewSpec;
 require 5.006_001;
@@ -36,10 +26,10 @@ use Cwd;
 use Digest::MD5;
 use vars qw($AUTOLOAD);
 
-use SVN::S4;
 use SVN::S4::Path;
 
-our $VERSION = '1.020';
+our $VERSION = '1.021';
+our $Info = 1;
 
 
 #######################################################################
@@ -52,13 +42,33 @@ our $VERSION = '1.020';
 # OVERLOADS of S4 object
 package SVN::S4;
 
-our @vsmap;
+our @list_actions;
+
+sub vsdebug {
+    if ($SVN::S4::Debug) {
+        my $string = shift;
+	print "s4: $string\n";
+    }
+}
+
+sub info {
+    if ($Info) {
+        my $string = shift;
+	print "s4: $string\n";
+    }
+}
+
+sub error {
+    my $string = shift;
+    warn "%Error: $string\n";
+    exit 1;
+}
 
 sub viewspec_hash {
     my $self = shift;
     my $text_to_hash = "";
-    foreach (@vsmap) {
-        $text_to_hash .= ($_->{cmd}||"") . ($_->{url}||"") . ($_->{dir}||"");
+    foreach (@list_actions) {
+        $text_to_hash .= "$_->{cmd} $_->{url} $_->{dir}\n";
 	# just omit rev.
     }
     my $viewspec_hash = Digest::MD5::md5_hex($text_to_hash);
@@ -87,7 +97,7 @@ sub parse_viewspec {
     my $fn = $params{filename};
     # NOTE: parse_viewspec must be called with revision parameter.
     # But when a viewspec includes another viewspec, this function will be 
-    # called recursively and revision will be undefined.
+    # called again and revision will be undefined.
     $self->{revision} = $params{revision} if $params{revision};
     # Remember the top level viewspec file. When doing an include, the included
     # file is relative to the top level one.
@@ -118,7 +128,7 @@ sub parse_viewspec {
 	s/^\s+//;      # remove leading space
 	s/\s+$//;      # remove trailing space
 	next if /^$/;  # remove empty lines
-	#$self->dbg ("viewspec: $_");
+	#vsdebug ("viewspec: $_");
 	$self->parse_viewspec_line ($_);
     }
     $fh->close;
@@ -152,46 +162,10 @@ sub expand_viewspec_vars {
     my %vars;
     for (my $i=0; $i<=$#$listref; $i++) {
 	my $foo;
-        #$self->dbg ("before substitution: $listref->[$i]");
+        #vsdebug "before substitution: $listref->[$i]";
 	$listref->[$i] =~ s/\$([A-Za-z0-9_]+)/$self->{viewspec_vars}->{$1}/g;
-	#$self->dbg ("after substitution: $listref->[$i]");
+	#vsdebug "after substitution: $listref->[$i]";
     }
-    # FIXME: One ugly thing about the way it works is that if the user uses a variable 
-    # that's undefined, you get unhelpful perl warnings instead of a good error message.
-}
-
-sub add_to_vsmap {
-    my $self = shift;
-    my %params = (#item=>,
-                  #override=>,
-                  @_);
-    # This item replaces any previous item that matches it, e.g.
-    #  1. map a/b/c to url1
-    #  2. map a/b to url2    replaces #1
-    #  3. map a/b/c to url3  does not replace
-    # Delete any item whose directory matches this one.
-    my @delete_indices;
-    my $i;
-    for ($i=0; $i <= $#vsmap; $i++) {
-	my $cmd = $vsmap[$i]->{cmd};
-	my $actdir = $vsmap[$i]->{dir};
-	$self->dbg ("checking $cmd on $actdir");
-        if ($actdir =~ /^$params{item}->{dir}/) {
-	    if ($params{override} || $cmd eq 'unmap') {
-		# If override is set, then you are allowed to override.
-		# Anybody is allowed to override an unmap command.
-		$self->dbg ("deleting action=$cmd on dir=$actdir");
-		push @delete_indices, $i;
-	    } else {
-	        $self->error("view line for dir '$params{item}->{dir}' collides with previous line for dir '$vsmap[$i]->{dir}'");
-	    }
-	}
-    }
-    foreach $i (sort {$b<=>$a} @delete_indices) {
-	splice (@vsmap, $i, 1);
-    }
-    push @vsmap, $params{item};
-    #### add to viewspec tree
 }
 
 sub viewspec_cmd_view {
@@ -199,9 +173,9 @@ sub viewspec_cmd_view {
     my ($url, $dir, $revtype, $rev) = @_;
     $revtype = "" if !defined $revtype;
     $rev = "" if !defined $rev;
-    $self->dbg ("cmd_view: url=$url  dir=$dir  revtype=$revtype  rev=$rev");
+    vsdebug "cmd_view: url=$url  dir=$dir  revtype=$revtype  rev=$rev";
     if (!defined $url || !defined $dir) {
-        $self->error("view command requires URL and DIR argument");
+        error("view command requires URL and DIR argument");
     }
     # check syntax of revtype,rev
     if ($revtype eq 'rev') {
@@ -210,34 +184,51 @@ sub viewspec_cmd_view {
         $self->ensure_valid_date_string($rev);
 	$rev = "{$rev}";
 	$rev = $self->rev_on_date(url=>$url, date=>$rev);
-    } elsif ($revtype ne '') {
-	$self->error("Illegal syntax of view line 'view " . join(" ",@_) ."'. Expected view URL DIR [rev REVNUM].");
-    } elsif (!defined $self->{revision}) {
-        die "%Error: parsing view line in viewspec, but revision variable is missing";
-    } else {
-	# no revnum argument, so use the default rev for this run
+    } elsif ($self->{revision}) {
 	$rev = $self->{revision};
+    } else {
+        die "%Error: parsing view line in viewspec, but revision variable is missing";
     }
     $self->ensure_valid_rev_string($rev);
-    my $item = { cmd=>'map', url=>$url, dir=>$dir, rev=>$rev };
-    $self->add_to_vsmap(item=>$item, override=>0);
+    # if there is already an action on this directory, abort.
+    foreach (@list_actions) {
+        if ($dir eq $_->{dir}) {
+	    die "%Error: In Project.viewspec, one view line collides with a previous one for directory '$dir'. You must either remove one of the view commands or add an 'unview' command before it.";
+	}
+    }
+    my $action;
+    $action->{cmd} = "switch";
+    $action->{url} = $url;
+    $action->{dir} = $dir;
+    $action->{rev} = $rev;
+    push @list_actions, $action;
 }
 
 sub viewspec_cmd_unview {
     my $self = shift;
     my ($dir) = @_;
-    $self->dbg ("viewspec_cmd_unview: dir=$dir");
+    vsdebug "viewspec_cmd_unview: dir=$dir";
     my $ndel = 0;
-    my $item = { cmd=>'unmap', dir=>$dir };
-    $self->add_to_vsmap (item=>$item, override=>1);
+    for (my $i=0; $i <= $#list_actions; $i++) {
+	my $cmd = $list_actions[$i]->{cmd};
+	my $actdir = $list_actions[$i]->{dir};
+	vsdebug "checking $cmd on $actdir";
+        if ($cmd eq 'switch' && $actdir =~ /^$dir/) {
+	    vsdebug "deleting action=$cmd on dir=$dir";
+	    #vsdebug "before deleting, list was " . Dumper(\@list_actions);
+	    splice (@list_actions, $i, 1);
+	    #vsdebug "after deleting, list was " . Dumper(\@list_actions);
+	    $ndel++;
+	}
+    }
 }
 
 sub viewspec_cmd_include {
     my $self = shift;
     my ($file) = @_;
-    $self->dbg ("viewspec_cmd_include $file");
+    vsdebug "viewspec_cmd_include $file";
     $self->{parse_viewspec_include_depth}++;
-    $self->error ("Excessive viewspec includes. Is this infinite recursion?")
+    error "Excessive viewspec includes. Is this infinite recursion?" 
          if $self->{parse_viewspec_include_depth} > 100;
     $self->parse_viewspec (filename=>$file);
     $self->{parse_viewspec_include_depth}--;
@@ -246,20 +237,18 @@ sub viewspec_cmd_include {
 sub viewspec_cmd_set {
     my $self = shift;
     my ($var,$value) = @_;
-    $self->dbg ("viewspec_cmd_set $var = $value");
+    vsdebug "viewspec_cmd_set $var = $value";
     $self->{viewspec_vars}->{$var} = $value;
 }
-
-########################################################################
 
 # Call with $s4->viewspec_compare_rev($rev)
 # Compares every action in the viewspec against $rev, and returns true
 # if every part of the tree will be switched to $rev.  If any rev mismatches,
 # returns false.
-sub viewspec_compare_rev {    # DEPRECATED
+sub viewspec_compare_rev {
     my $self = shift;
     my ($rev_to_match) = @_;
-    foreach my $action (@vsmap) {
+    foreach my $action (@list_actions) {
 	my $rev = $action->{rev};
 	if ($rev ne $rev_to_match) {
 	    return undef; # found inconsistent revs, return false
@@ -268,321 +257,94 @@ sub viewspec_compare_rev {    # DEPRECATED
     return 1;  # all revs were the same, return true
 }
 
-sub lookup_mapping {
-    my $self = shift;
-    my %params = (#wcpath=>,
-                  @_);
-    my $longest_match = -1;
-    my $match;
-    my $url;
-    my $rev;
-    foreach my $item (@vsmap) {
-        print "Comparing $params{wcpath} with map item: ", Dumper($item), "\n" if $self->debug>1;
-	if ($params{wcpath} =~ /^$item->{dir}/) {
-	    if (length $item->{dir} > $longest_match) {
-	        $longest_match = length $item->{dir};
-		$match = $item;
-		if ($item->{cmd} eq 'map') {
-		    # it's a match. is it the longest match?
-		    my $nonmatching = substr ($params{wcpath}, $longest_match);
-		    $nonmatching =~ s/^\/*//;  # remove leading slash
-		    $self->dbg("nonmatching part is $nonmatching");
-		    $url = $item->{url};
-		    $url .= "/" . $nonmatching if length $nonmatching > 0;
-		    $rev = $item->{rev};
-		} elsif ($item->{cmd} eq 'unmap') {
-		    undef $url;
-		    undef $rev;
-		} else {
-		    $self->error ("unknown cmd in vsmap '$item->{cmd}'");
-		}
-	    }
-	}
-    }
-    if (!defined $url || !defined $rev) {
-	return;
-        #$self->error("wcpath '$params{wcpath}': did not match anything");
-    }
-    $self->dbg("wcpath '$params{wcpath}' matched '", Dumper($match), "'. returning url=$url and rev=$rev\n");
-    return ($url, $rev);
+sub sort_by_dir {
+    return $a->{dir} cmp $b->{dir};
 }
 
-sub has_submappings {
-    my $self = shift;
-    my %params = (#wcpath=>,
-                  @_);
-    # Search for any mappings underneath $params{wcpath}, by looking for any
-    # dir that matches wcpath and is LONGER.
-    foreach my $item (@vsmap) {
-	if ((length $item->{dir} > length $params{wcpath})
-	    && ($item->{dir} =~ /^$params{wcpath}/)) 
-	{
-	    return 1;  # found one!
-	}
-    }
-    return 0;
-}
-
-sub list_subdirs_on_disk {
+sub apply_viewspec {
     my $self = shift;
     my %params = (#path=>,
                   @_);
-    opendir DIR, $params{path};
-    my @items = readdir DIR;
-    closedir DIR;
-    # stat each one to see which is a dir
-    my @dirs;
-    foreach my $item (@items) {
-	next if $item eq '.' || $item eq '..' || $item eq '.svn';
-	push @dirs, $item if -d $item;
-    }
-    return @dirs;
-}
-
-sub list_subdirs_in_repo {
-    my $self = shift;
-    my %params = (#path=>,
-                  #revision=>,
-                  @_);
-    my $path = $self->abs_filename($params{path});
-    # svn ls --nonrecursive
-    my $dirents = $self->client->ls ($path, $params{revision}, 0);
-    my @dirs;
-    foreach my $key (keys %$dirents) {
-	my $ent = $dirents->{$key};
-        #print Dumper($ent), "\n" if $self->debug;
-	my $kind = $SVN::S4::WCKIND_STRINGS{$ent->kind};
-	if ($kind eq 'dir') {
-	    $self->dbg ("in $path, found dir $key");
-	    push @dirs, $key if $kind eq 'dir';
-	}
-    }
-    return @dirs;
-}
-
-sub list_switchpoints_at {
-    my $self = shift;
-    my %params = (#wcpath=>,
-                  @_);
-    # Find switchpoints that branch directly off of wcpath.
-    # E.g. list of switchpoints = A, A/B, A/B/C, and A/B/D/F.
-    # The switchpoints at A/B are C and D.
-    my %switchpoints;  # use hash to avoid the dups
-    foreach my $item (@vsmap) {
-	my $dir = $item->{dir};
-	$self->dbg("checking if '$dir' matches $params{wcpath}");
-	if ($dir =~ s/^$params{wcpath}//) {
-	    $self->dbg("found match '$dir' under $params{wcpath}");
-	    $dir =~ s%^/%%g;   # remove leading slashes
-	    $dir =~ s%/.*%%g;  # remove slash and anything after it
-	    $switchpoints{$dir}=1 if length $dir > 0;
-	}
-    }
-    return keys %switchpoints;
-}
-
-sub remove_duplicates_from_list {
-    my @list = @_;
-    my %hash;
-    foreach (@list) {  $hash{$_} = 1; }
-    return sort keys %hash;
-}
-
-sub fix_urls_recurse {
-    my $self = shift;
-    my %params = (#wctop=>,
-                  #wcpath=>,
-                  #basepath=>,
-		  #node=>,
-                  @_);
-    $self->dbg("BEGIN fix_urls_recurse wcpath=$params{wcpath} basepath=$params{basepath}");
-    my $path = $params{basepath};
-    $path .= "/" if length $path > 0 && length $params{wcpath} > 0;
-    $path .= $params{wcpath} if length $params{wcpath} > 0;
-    my $current_url = $self->file_url (filename=>$path, assert_exists=>0);
-    my ($desired_url,$desired_rev) = $self->lookup_mapping (wcpath=>$params{wcpath});
-    if (!defined $desired_url) {
-        $self->dbg("desired_url is null for $path");
-    }
-    my $inrepo = $desired_url && $self->is_file_in_repo(url=>$desired_url);
-    my $has_submappings = $self->has_submappings(wcpath=>$params{wcpath});
-    my $disappear = !defined $desired_url && !$has_submappings && !$inrepo && !(-e $path);
-    if (!$inrepo) {
-        $desired_url = $self->void_url;
-    }
-    $self->dbg ("for $params{wcpath}, inrepo=$inrepo, has_submap=$has_submappings, disappear=$disappear");
-    $desired_rev ||= $self->{revision};   # needed for unviews
-    $params{node}->{url} = $desired_url;
-    $params{node}->{rev} = $desired_rev;
-    if ($disappear) {
-        $self->dbg("making path $params{wcpath} disappear");
-	$params{node}->{disappear} = 1;
-    } elsif ($current_url && $current_url eq $desired_url) {
-        $self->dbg("url is right for '$params{wcpath}'");
-    } else {
-	my @cmd = ('switch', $desired_url, $path, '--revision', $desired_rev);
-	if ($desired_url eq $self->void_url) {
-	    print "s4: Creating empty directory $params{wcpath}\n";
-	    push @cmd, "--quiet" unless $self->debug;
-	    $params{node}->{url} = 'void';
-	} else {
-	    print "s4: Switching $params{wcpath} to $desired_url\n";
-	    $params{node}->{has_submappings} = $has_submappings;
-	    if ($params{node}->{has_submappings}) {
-	        push @cmd, "--non-recursive";
-	    }
-	}
-	$self->create_switchpoint_hierarchical($params{basepath}, $params{wcpath});
-	$self->run_svn(@cmd);
-    }
-    if (!$disappear) {
-	my @disk = $self->list_subdirs_on_disk (path=>$path);
-	my @repo = $self->list_subdirs_in_repo (path=>$path, revision=>$self->{revision});
-	my @switches = $self->list_switchpoints_at (wcpath=>$params{wcpath});
-	print "disk=", Dumper(\@disk) if $self->debug > 1;
-	print "repo=", Dumper(\@repo) if $self->debug > 1;
-	print "switches=", Dumper(\@switches) if $self->debug > 1;
-	my @all = remove_duplicates_from_list (@disk, @repo, @switches);
-	foreach my $subdir (@all) {
-	    $self->dbg("Recurse into $subdir");
-	    my $newdir = $params{wcpath};
-	    $newdir .= "/" unless $newdir eq "";
-	    $newdir .= $subdir;
-	    $params{node}->{dirs}->{$subdir} ||= {};   # set to empty hash, if not defined
-		$self->fix_urls_recurse(wctop=>$params{wctop}, wcpath=>$newdir, basepath=>$params{basepath},
-			node=>$params{node}->{dirs}->{$subdir});
-	}
-    }
-    $self->dbg("RETURN FROM fix_urls_recurse wcpath=$params{wcpath} basepath=$params{basepath}");
-}
-
-sub apply_viewspec_new {
-    my $self = shift;
-    my %params = (#path=>,
-                  @_);
-    $self->dbg ("revision is $self->{revision}") if $self->{revision};
-    $self->read_viewspec_state (path=>$params{path});
-    # build list of viewspec_managed_switches
-    # FIXME: Really it's just a list of the dir entries in the @vsmap.
-    # So there's not much reason to have a separate variable for it.
-    # To fix this, put @vsmap into $self, and make a method
-    # to extract the list of viewspec_managed_switches out of it.
-    # Then I don't need $self->{viewspec_managed_switches} anymore.
+    vsdebug "revision is $self->{revision}" if $self->{revision};
     $self->{viewspec_managed_switches} = [];  # ref to empty array
-    foreach (@vsmap) {
-	push @{$self->{viewspec_managed_switches}}, $_->{dir}
-	    if ($_->{cmd} eq 'map');
+    my $base_uuid;
+    foreach my $action (sort sort_by_dir @list_actions) {
+	my $dbg = "Action: ";
+        foreach my $key (sort keys %$action) {
+	    $dbg .= "$key=$action->{$key} ";
+	}
+	vsdebug ($dbg);
+	unless ($base_uuid) {
+	    my $base_url = $self->file_url (filename=>$params{path});
+	    $base_uuid = $self->client->uuid_from_url ($base_url);
+	    print "Base repository UUID is $base_uuid\n" if $self->debug;
+	}
+	my $cmd = "";
+	if ($action->{cmd} eq 'switch') {
+	    my $reldir = $action->{dir};
+	    push @{$self->{viewspec_managed_switches}}, $reldir;
+	    if (!-e "$params{path}/$reldir") {
+	        # Directory does not exist yet. Use the voids trick to create
+		# a versioned directory there that is switched to an empty dir.
+		print "s4: Creating empty directory to switch into: $reldir\n";
+		my $basedir = $params{path};
+		$self->create_switchpoint_hierarchical($basedir, $reldir);
+	    }
+	    my $rev = $action->{rev};
+	    if ($rev eq 'HEAD') {
+	        die "%Error: with '-r HEAD' in the viewspec actions list, the tree can have inconsistent revision numbers. This should not happen.";
+	    }
+
+	    my $url = $self->file_url(filename=>"$params{path}/$reldir");
+	    my $verb;
+	    my $cleandir = $self->clean_filename("$params{path}/$reldir");
+	    if ($url && $url eq $action->{url}) {
+		$cmd = "$self->{svn_binary} update $cleandir -r$rev";
+		$verb = "Updating";
+	    } else {
+		if (!$self->is_file_in_repo(url=>$action->{url}, revision=>$rev)) {
+		    die "%Error: Cannot switch to nonexistent URL: $action->{url}";
+		}
+		my $uuid = $self->client->uuid_from_url($action->{url});
+		if ($uuid ne $base_uuid) {
+		    die "%Error: URL $action->{url} is in a different repository! What you need is an SVN external, which viewspecs presently do not support.";
+		}
+		$cmd = "$self->{svn_binary} switch $action->{url} $cleandir -r$rev";
+		$verb = "Switching";
+	    }
+	    if (!$self->quiet) {
+		print "s4: $verb $reldir";
+		if ($verb eq 'Switching') {
+		    print " to $action->{url}";
+		    print " rev $rev" if $rev ne 'HEAD';
+		}
+		print "\n";
+	    }
+	} else {
+	    error "unknown command '$action";
+	}
+	$self->run ($cmd);
     }
     # Look for any switch points that S4 __used to__ maintain, but no longer does.
     # Undo those switch points, if possible.
-    $self->remove_unused_switchpoints (basepath=>$params{path});
-    # add one more map item, which defines the url mapping of the top level.
-    my $base_url = $self->file_url (filename=>$params{path});
-    my $item = { cmd=>'map', url=>$base_url, dir=>'', rev=>$self->{revision} };
-    push @vsmap, $item;
-    my $base_uuid;
-    # compute voids url once
-    $self->void_url(url => $self->file_url(filename=>$params{path}));
-    $self->{mytree} = {};
-    $self->fix_urls_recurse (wctop=>$params{path}, basepath=>$params{path}, wcpath=>'', node=>$self->{mytree});
-    $self->dbg("mytree = ", Dumper($self->{mytree}));
-    $self->dbg("done with apply_viewspec_new");
-    # now do an update?
-    $self->minimal_update_tree (path=>$params{path});
-    #$self->print("Updating the whole tree");
-    #$self->update(paths=>[$params{path}], revision=>$self->{revision}, regular_svn=>1);
+    $self->undo_switches (basepath=>$params{path});
     # Set viewspec hash in the S4 object.  The caller MAY decide to save the 
     # state by calling $self->save_viewspec_state, or not.
     $self->{viewspec_hash} = $self->viewspec_hash;
 }
 
-# Update everything to the revision number given in the viewspec.
-# Sometimes the viewspec does not specify any revision numbers, and you
-# can just update the whole tree in one shot.  Other times, some deep
-# directory has a "rev NUM" in the viewspec different from the rest, and we
-# have to do lots of nonrecursive updates in order to avoid making that
-# one directory flipflop.
-sub minimal_update_tree {
-    my $self = shift;
-    my %params = (#path=>,
-	    @_);
-    # Call recursive function to generate a minimal list of update commands
-    # that are needed.
-    my $needed = $self->minimal_update_tree_recurse (
-	    path=>$params{path},
-	    node=>$self->{mytree},
-	    );
-    $self->dbg ("minimal_update_tree needed = ", Dumper($needed));
-    # do the commands
-    foreach my $path (sort keys %{$needed}) {
-	my $rev = $needed->{$path}->{rev};
-	my $recurse = $needed->{$path}->{recurse};
-	$self->print("Updating $path to rev $rev");
-        my @cmd = ('update', $path, '--revision', $rev);
-	push @cmd, "--non-recursive" if !$recurse;
-	$self->run_svn(@cmd);
-    }
-}
-
-# Call minimal_update_tree_recurse with a node and a path.  The
-# node is a reference to a piece of $self->{mytree} and path is
-# the path that leads to it, e.g. "A/B/C".  This method examines
-# its rev and the revs of its children, and returns a hashref
-# with entries that describe how to update the node and its children.
-# If everything underneath has the same target rev, we return a 
-# hashref with one element, e.g. { 'A/B' => 8 }.  But if some children
-# have different target rev numbers, the hashref may have N elements,
-# e.g. { 'A/B/C' => 8, 'A/B/F' => 8, 'A/B/G' => 4}
-sub minimal_update_tree_recurse {
-    my $self = shift;
-    my %params = (#node=>,
-                  #path=>,
-                  @_);
-    my $node = $params{node};
-    # If this dir, and all its subdirs, have the same rev target, then it can
-    # use recursive update.
-    my $rev = $node->{rev};
-    my $hash = {};
-    $self->dbg("BEGIN minimal_update_tree_recurse with path $params{path}");
-    #$self->dbg("and node is ", Dumper($node));
-    my $coherent = 1;
-    foreach my $dir (keys %{$node->{dirs}}) {
-        $self->dbg("there is a dir $dir");
-	next if $node->{dirs}->{$dir}->{disappear};
-	my $subhash = $self->minimal_update_tree_recurse(
-	  node=>$node->{dirs}->{$dir},
-	  path=>$params{path} . "/$dir");
-	# copy all data from subhash to hash.
-	foreach my $path (keys %{$subhash}) {
-            $hash->{$path} = $subhash->{$path};
-	    my $childrev = $subhash->{$path}->{rev};
-	    $coherent = 0 if ($rev != $childrev);
-	}
-    }
-    if ($coherent) {
-	# Since they all had the same revision number, throw them all away
-	# and only return a hash with one entry in it.
-	undef $hash;
-	$hash->{$params{path}} = {rev=>$rev, recurse=>1};
-    } else {
-	$hash->{$params{path}} = {rev=>$rev, recurse=>0};
-    }
-    $self->dbg("END minimal_update_tree_recurse with path $params{path}");
-    return $hash;
-}
-
-sub remove_unused_switchpoints {
+sub undo_switches {
     my $self = shift;
     my %params = (#basepath=>,
                   @_);
     # Find the list of switchpoints that S4 created
     # If it can't be found, just return.
     if (!$self->{prev_state}) {
-        print "s4: remove_unused_switchpoints cannot find prev_state, giving up\n" if $self->debug;
+        print "s4: undo_switches cannot find prev_state, giving up\n" if $self->debug;
 	return;
     }
     if (!$self->{prev_state}->{viewspec_managed_switches}) {
-        print "s4: remove_unused_switchpoints cannot find previous list of viewspec_managed_switches, giving up\n" if $self->debug;
+        print "s4: undo_switches cannot find previous list of viewspec_managed_switches, giving up\n" if $self->debug;
 	return;
     }
     my @prevlist = sort @{$self->{prev_state}->{viewspec_managed_switches}};
@@ -627,8 +389,7 @@ sub remove_switchpoint {
     }
     my $url = $self->file_url(filename=>$path);
     my $voidurl = $self->void_url(url => $url);
-    my $quiet = $self->debug ? "" : "--quiet";
-    my $cmd = qq{$self->{svn_binary} switch $quiet $voidurl $path};
+    my $cmd = qq{$self->{svn_binary} switch --quiet $voidurl $path};
     $self->run($cmd);
     # Is it totally empty?
     my $status_items = 0;
@@ -664,13 +425,12 @@ sub remove_switchpoint {
 sub create_switchpoint_hierarchical {
     my $self = shift;
     my ($basedir,$reldir) = @_;
-    $self->dbg("create_switchpoint_hierarchical basedir=$basedir, reldir=$reldir");
     my $path = "";
     my @dirparts = split ('/', $reldir);
     for (my $i=0; $i <= $#dirparts; $i++) {
 	my $dirpart = $dirparts[$i];
 	my $last_time_through = ($i == $#dirparts);
-	print "s4: does '$dirpart' exist in $basedir? if not, make it\n" if $self->debug > 2;
+	print "s4: does '$dirpart' exist in $basedir? if not, make it\n" if $self->debug;
 	if (! -e "$basedir/$dirpart") {
 	    # Q: Why is voidurl in a loop?  It takes 1-2 seconds!?
 	    # A: I don't want to compute void_url unless it is
@@ -679,8 +439,7 @@ sub create_switchpoint_hierarchical {
 	    my $voidurl = $self->void_url(url => $self->file_url(filename=>$basedir));
 	    $self->create_switchpoint ($basedir,$dirpart);
 	    unless ($last_time_through) {
-		my $quiet = $self->debug ? "" : "--quiet";
-		$self->run ("$self->{svn_binary} switch $quiet $voidurl $basedir/$dirpart");
+		$self->run ("$self->{svn_binary} switch --quiet $voidurl $basedir/$dirpart");
 		$self->wait_for_existence (path=>"$basedir/$dirpart");
 		push @{$self->{viewspec_managed_switches}},
 		    $self->clean_filename("$basedir/$dirpart");
@@ -713,16 +472,13 @@ sub create_switchpoint {
     # hacky way first, to show if it works.
     # the right way is to use an XML parser.
     my $newfile = "$basedir/.svn/s4_tmp_$$";
-    unlink($newfile);
+    $self->run("rm -rf $basedir/.svn/s4_tmp_*");
     open (IN, $entries_file) or die "%Error: $! opening $entries_file";
     open (OUT, ">$newfile") or die "%Error: $! opening $newfile";
     die "%Error: can't make a switchpoint with a quote in it!" if $targetdir =~ /"/;
-    my $replace_entries_file = 1;
     while (<IN>) {
 	if (/name="$targetdir"/) {
-	    $self->dbg ("create_switchpoint: an entry called '$targetdir' already exists in .svn/entries");
-	    $replace_entries_file = 0;
-	    last;
+	    die "%Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
 	}
 	if (/<\/wc-entries>/) {
 	    # just before the last line, add this entry
@@ -730,8 +486,7 @@ sub create_switchpoint {
 	}
         print OUT;
     }
-    $self->run ("/bin/mv -f $newfile $entries_file") if $replace_entries_file;
-    unlink($newfile);
+    $self->run ("/bin/mv -f $newfile $entries_file");
 }
 
 ######################################################################
@@ -801,7 +556,7 @@ Whitespace and blank lines are ignored.  The commands must be one of:
 
 Parse_viewspec reads the file specified by FILENAME, and builds up
 a list of svn actions that are required to build the working area.
-The actions are stored in @vsmap, and each one is a hash 
+The actions are stored in @list_actions, and each one is a hash 
 containing a command, a directory, etc.
 
 The revision parameter is used as the default revision number for
@@ -810,7 +565,7 @@ that overrides the default.
 
 =item $s4->apply_viewspec
 
-For each of the svn actions in @vsmap, perform the actions.
+For each of the svn actions in @list_actions, perform the actions.
 An example of an action is to run svn switch on the Foo directory
 the the URL Bar at revision 50.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-#$Id: s4 48246 2007-12-04 20:23:01Z wsnyder $
+#$Id: s4 48293 2007-12-05 16:57:37Z denney $
 ######################################################################
 #
 # Copyright 2002-2007 by Wilson Snyder.  This program is free software;
@@ -63,7 +63,7 @@ Getopt::Long::config ("pass_through", "no_auto_abbrev");
 
 if (! GetOptions (
 		  "help"	=> \&usage,
-		  "debug:1"	=> \$Debug,
+		  "debug"	=> \&debug,
 		  "svn=s"	=> \$Opt_SvnBinary,
 		  "quiet"	=> \&global_option_no_arg,
 		  "version"	=> \&global_option_no_arg,
@@ -85,7 +85,6 @@ print "  Pos: '",join("' '",@Opt_CmdParams),"'\n" if $Debug;
 # Create one SVN::S4 object
 our %opts = $SvnOpt->hashCmd($Opt_Cmd, @Opt_CmdParams);
 our $s4 = new SVN::S4(SVN::S4::args_to_params(%opts));	# Process --quiet etc
-$s4->{debug} = $Debug;
 $s4->{svn_binary} = $Opt_SvnBinary || $ENV{'S4_SVN'} || "svn";
 print "Using '$s4->{svn_binary}' for subversion commands\n" if $Debug;
 $s4->{s4_binary} = $0;
@@ -97,7 +96,7 @@ if ($Opt_Cmd eq '') {
     # in svn, a few things work even with no subcommand
     if ($Opt_Version) {
 	if (!$Opt_Quiet) {
-	    my $rev = '$Id: s4 48246 2007-12-04 20:23:01Z wsnyder $';
+	    my $rev = '$Id: s4 48293 2007-12-05 16:57:37Z denney $';
 	    $rev =~ s/^\$Id: s4 ([0-9]+) (.*)/$1/ or die "failed to parse id string: $rev";
 	    print "s4 wrapper around subversion (r$rev)\n";
 	    print "by Bryce Denney and Wilson Snyder\n";
@@ -140,13 +139,14 @@ if ($Opt_Cmd eq "help-summary") {
 #----------------------------------------------------------------------
 
 sub usage {
-    print '$Id: s4 48246 2007-12-04 20:23:01Z wsnyder $ ', "\n";
+    print '$Id: s4 48293 2007-12-05 16:57:37Z denney $ ', "\n";
     pod2usage(-verbose=>2, -exitval => 2);
     exit (1);
 }
 
 sub debug {
-    $Debug++;
+    $SVN::S4::Debug = 1;
+    $Debug = 1;
 }
 
 sub global_option_no_arg {
@@ -274,8 +274,79 @@ sub cmd_switch {
     if (!defined $url || !defined $path) {
         return cmd_svn();  # no viewspec checking
     }
-    $s4->switch (revision=>$opts{revision}[0], url=>$url, path=>$path,
-      fallback_cmd=>raw_svn_command());
+    # FIXME: great potential for performance improvement here.  If a viewspec
+    # will be present after the switch, do nonrecursive switch first and then
+    # parse viewspec, and let that inform how we proceed.
+    #
+    # See if the directory they tried to switch exists. If so, nothing to do.
+    if (-d $path) {
+        cmd_svn(); 
+	$s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
+	return check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
+    }
+    # Aha, now we can help out by making the switchpoint at $path.
+    # Identify the lowest-level directory that is a working copy, and
+    # start building switchpoints until you reach path.
+    my @basedirs = File::Spec->splitdir ($path);
+    my @reldirs;
+    my $basedir;
+    while (@basedirs) {
+	unshift @reldirs, (pop @basedirs);  # start at parent of $path.
+        my $candidate = File::Spec->catdir (@basedirs);
+	last if ($candidate eq '/');  # please don't touch the root!
+	$candidate = "." if length $candidate < 1;
+	print "Is $candidate a working copy?\n" if $Debug;
+	if (-d $candidate && -d "$candidate/.svn") {
+	    $basedir = $candidate;
+	    last;
+	}
+    }
+    if (!defined $basedir) {
+        print "Cannot find working copy at any point above $path. Run normal command.\n" if $Debug;
+        cmd_svn();
+	$s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
+	return check_viewspec_after_svn_cmd (path=>$path, revision=>$opts{revision}[0]);
+
+    }
+    print "s4: Creating empty directory to switch into: $path\n";
+    my $reldir = File::Spec->catdir (@reldirs);
+    #die "create_switchpoint_hierarchical with basedir=$basedir, reldir=$reldir";
+    $s4->create_switchpoint_hierarchical ($basedir, $reldir);
+    # Now that we made the switchpoint, run the normal command.
+    cmd_svn ();
+    $s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
+    check_viewspec_after_svn_cmd (path=>$path, revision=>$opts{revision}[0]);
+}
+
+sub check_viewspec_after_svn_cmd {
+    my %params = (#path=>,
+                  #revision=>,
+                  @_);
+    my $path = $params{path};
+    # Is there a viewspec file? If so parse and update accordingly.
+    my $viewspec = "$path/" . $s4->{viewspec_file};
+    my $found_viewspec = (-d $path && -f $viewspec);
+    if (!$found_viewspec) {
+        print "after switch, there is no viewspec. done.\n" if $s4->debug;
+        return;
+    }
+    my $rev = $params{revision};
+    $rev = $s4->which_rev (revision=>$rev, path=>$path) if !$rev;
+    print "Using revision $rev for all viewspec operations\n" if $s4->debug;
+    print "Parse the viewspec file $viewspec\n" if $s4->debug;
+    $s4->parse_viewspec (filename=>$viewspec, revision=>$rev);
+    # Test to see if a normal update will suffice, since it is a whole lot faster
+    # than a bunch of individual updates.  For every successful checkout/update
+    # we make an MD5s hash of the viewspec actions list (minus rev number) and
+    # save it away.  Next time, if the viewspec hash is the same, and every
+    # directory is scheduled to be updated to the same version (no rev NUM clauses),
+    # then you can safely use a single update.
+    if (!$s4->viewspec_changed(path=>$path) && $s4->viewspec_compare_rev($rev)) {
+        print "No viewspec changes. Done.\n" if !$s4->quiet;
+	return;
+    }
+    $s4->apply_viewspec (path=>$path);
+    $s4->save_viewspec_state (path=>$path);
 }
 
 sub cmd_checkout {
@@ -325,7 +396,7 @@ sub cmd_scrub {
     }
     ###$path = "." if !defined $path;  # make them type it
     $s4->strong_revert (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0]);
-    $s4->check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
+    check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
 }
 
 sub cmd_help {

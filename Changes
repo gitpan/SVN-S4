@@ -3,6 +3,10 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
+* SVN::S4 1.021 12/5/2007
+
+****	Backed out some unintended experimental changes in 1.020.
+
 * SVN::S4 1.020 12/3/2007
 
 **	First major release to CPAN.
@@ -16,7 +20,7 @@ indicates the contributor was also the author of the fix; Thanks!
 **	First code written.
 
 ----------------------------------------------------------------------
-$Id: Changes 48237 2007-12-04 19:35:20Z wsnyder $
+$Id: Changes 48305 2007-12-05 18:20:20Z wsnyder $
 DESCRIPTION: Documentation on change history for this package
 ----------------------------------------------------------------------
 

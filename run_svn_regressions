@@ -16,7 +16,6 @@ svn info 				>>$LOG 2>&1
 cp test_this_s4.template test_this_s4
 pwd=`pwd`
 sed -i "s%__S4TOP__%$pwd%" test_this_s4
-sed -i "s%__SVN_SOURCE_SYMLINK__%$SVN_SRC%" test_this_s4
 script=`pwd`/test_this_s4
 
 #$script help                           >>$LOG 2>&1

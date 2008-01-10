@@ -1,8 +1,8 @@
 #!/usr/bin/perl -w
-# $Id: 86_s4_fixprop.t 48292 2007-12-05 16:48:44Z denney $
+# $Id: 86_s4_fixprop.t 49466 2008-01-10 19:56:49Z wsnyder $
 # DESCRIPTION: Perl ExtUtils: Type 'make test' to test this package
 #
-# Copyright 2002-2007 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2008 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # General Public License or the Perl Artistic License.
 
@@ -16,7 +16,7 @@ BEGIN { require "t/test_utils.pl"; }
 my $out;
 
 write_text("test_dir/trunk/tdir2/tfile_fixprop1", 'Hello');
-write_text("test_dir/trunk/tdir2/tfile_fixprop2", '$Id: 86_s4_fixprop.t 48292 2007-12-05 16:48:44Z denney $');
+write_text("test_dir/trunk/tdir2/tfile_fixprop2", '$Id: 86_s4_fixprop.t 49466 2008-01-10 19:56:49Z wsnyder $');
 run_system("${PERL} s4 add test_dir/trunk/tdir2/tfile_fixprop*");
 ok(1);
 

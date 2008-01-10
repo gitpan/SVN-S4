@@ -4,7 +4,7 @@
 @settitle Perl SVN::S4 Installation
 @c %**end of header
 
-@c $Id: readme.texi 48293 2007-12-05 16:57:37Z denney $
+@c $Id: readme.texi 49466 2008-01-10 19:56:49Z wsnyder $
 @c DESCRIPTION: TexInfo: DOCUMENT source run through texinfo to produce README file
 @c Use 'make README' to produce the output file
 @c Before release, run C-u C-c C-u C-a (texinfo-all-menus-update)
@@ -26,7 +26,7 @@ This is the SVN::S4 Perl Package.
 @node Copyright, Description, Top, Top
 @section Copyright
 
-This package is Copyright 2006-2007 by Bryce Denney and Wilson Snyder
+This package is Copyright 2006-2008 by Bryce Denney and Wilson Snyder
 @email{wsnyder@@wsnyder.org}.
 
 You may distribute under the terms of either the GNU General Public License

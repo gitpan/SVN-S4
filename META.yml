@@ -1,6 +1,6 @@
 # http://module-build.sourceforge.net/META-spec.html
 name:         SVN-S4
-version:      1.021
+version:      1.022
 version_from: lib/SVN/S4.pm
 license:      perl
 installdirs:  site

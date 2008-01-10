@@ -1,8 +1,8 @@
-# $Id: Snapshot.pm 48306 2007-12-05 18:20:44Z wsnyder $
+# $Id: Snapshot.pm 49466 2008-01-10 19:56:49Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
-# Copyright 2005-2007 by Bryce Denney.  This program is free software;
+# Copyright 2005-2008 by Bryce Denney.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # General Public License or the Perl Artistic License.
 #
@@ -64,7 +64,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.021';
+our $VERSION = '1.022';
 our $Info = 1;
 
 
@@ -267,7 +267,7 @@ sub snapshot_main {
 	2 => gen_section_divider(2), 
 	3 => gen_section_divider(3)
     );
-    my $rev = '$Id: Snapshot.pm 48306 2007-12-05 18:20:44Z wsnyder $';
+    my $rev = '$Id: Snapshot.pm 49466 2008-01-10 19:56:49Z wsnyder $';
     $rev =~ s/^\$Id: \S+ ([0-9]+) (.*)/$1/ or die "%Error: Failed to parse id string: $rev";
     print STDOUT qq{#!/bin/bash -x
 # This file is a s4 snapshot file, created by SVN::S4::Snapshot.pm rev $rev,
@@ -559,7 +559,7 @@ sub get_svn_url {
 }
 
 sub usage {
-    print '$Id: Snapshot.pm 48306 2007-12-05 18:20:44Z wsnyder $ ', "\n";
+    print '$Id: Snapshot.pm 49466 2008-01-10 19:56:49Z wsnyder $ ', "\n";
     $SIG{__WARN__} = sub{};     #pod2text isn't clean.
     pod2text($0);
     exit 1;
@@ -716,7 +716,7 @@ SVN::S4::Snapshot
 
 The latest version is available from CPAN and from L<http://www.veripool.com/>.
 
-Copyright 2005-2007 by Bryce Denney.  This package is free software; you
+Copyright 2005-2008 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License or the Perl Artistic License.
 

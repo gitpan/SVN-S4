@@ -1,8 +1,8 @@
-# $Id: Getopt.pm 48306 2007-12-05 18:20:44Z wsnyder $
+# $Id: Getopt.pm 49466 2008-01-10 19:56:49Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
-# Copyright 2002-2007 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2008 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # General Public License or the Perl Artistic License.
 #
@@ -26,7 +26,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.021';
+our $VERSION = '1.022';
 
 our %_Aliases =
     (
@@ -59,6 +59,8 @@ our %_Aliases =
      'st'	=> 'status',
      'stat'	=> 'status',
      'up'	=> 'update',
+     # S4 additions
+     'qci'	=> 'quick-commit',
      );
 
 # List of commands and arguments.
@@ -467,6 +469,15 @@ our %_Args =
   'info-switches' => {
       s4_addition => 1,
       args => (' [PATH...]')},
+  'quick-commit' => {
+      s4_addition => 1,
+      args => (' [-m|--message TEXT]'
+	       .' [-F|--file FILE]'
+	       .' [-q|--quiet]'
+	       .' [--dry-run]'
+	       .' [-R|--recursive]'		# Ignored as is default
+	       .' [-N|--non-recursive]'
+	       .' [PATH...]')},
   'snapshot' => {
       s4_addition => 1,
       args => (' [--no-ignore]'
@@ -808,7 +819,7 @@ Return the option list, with the specified matching argument removed.
 
 The latest version is available from CPAN and from L<http://www.veripool.com/>.
 
-Copyright 2002-2007 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2008 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License or the Perl Artistic License.
 

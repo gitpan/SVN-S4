@@ -1,8 +1,8 @@
-# $Id: StrongRevert.pm 48306 2007-12-05 18:20:44Z wsnyder $
+# $Id: StrongRevert.pm 49466 2008-01-10 19:56:49Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
-# Copyright 2005-2007 by Bryce Denney.  This program is free software;
+# Copyright 2005-2008 by Bryce Denney.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # General Public License or the Perl Artistic License.
 #
@@ -46,7 +46,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.021';
+our $VERSION = '1.022';
 our $Info = 1;
 
 
@@ -428,7 +428,7 @@ SVN::S4::StrongRevert
 
 The latest version is available from CPAN and from L<http://www.veripool.com/>.
 
-Copyright 2005-2007 by Bryce Denney.  This package is free software; you
+Copyright 2005-2008 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License or the Perl Artistic License.
 

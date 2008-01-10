@@ -1,8 +1,8 @@
 #!/usr/bin/perl -w
-#$Id: s4 48293 2007-12-05 16:57:37Z denney $
+#$Id: s4 49466 2008-01-10 19:56:49Z wsnyder $
 ######################################################################
 #
-# Copyright 2002-2007 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2008 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # General Public License or the Perl Artistic License.
 #
@@ -96,7 +96,7 @@ if ($Opt_Cmd eq '') {
     # in svn, a few things work even with no subcommand
     if ($Opt_Version) {
 	if (!$Opt_Quiet) {
-	    my $rev = '$Id: s4 48293 2007-12-05 16:57:37Z denney $';
+	    my $rev = '$Id: s4 49466 2008-01-10 19:56:49Z wsnyder $';
 	    $rev =~ s/^\$Id: s4 ([0-9]+) (.*)/$1/ or die "failed to parse id string: $rev";
 	    print "s4 wrapper around subversion (r$rev)\n";
 	    print "by Bryce Denney and Wilson Snyder\n";
@@ -124,14 +124,16 @@ if ($Opt_Cmd eq "help-summary") {
     cmd_fixprop();
 } elsif ($Opt_Cmd eq "info-switches") {
     cmd_info_switches();
-} elsif ($Opt_Cmd eq "update") {
-    cmd_update();
-} elsif ($Opt_Cmd eq "switch") {
-    cmd_switch();
-} elsif ($Opt_Cmd eq "snapshot") {
-    cmd_snapshot();
+} elsif ($Opt_Cmd eq "quick-commit") {
+    cmd_quick_commit();
 } elsif ($Opt_Cmd eq "scrub") {
     cmd_scrub();
+} elsif ($Opt_Cmd eq "snapshot") {
+    cmd_snapshot();
+} elsif ($Opt_Cmd eq "switch") {
+    cmd_switch();
+} elsif ($Opt_Cmd eq "update") {
+    cmd_update();
 } else {
     cmd_svn();
 }
@@ -139,7 +141,7 @@ if ($Opt_Cmd eq "help-summary") {
 #----------------------------------------------------------------------
 
 sub usage {
-    print '$Id: s4 48293 2007-12-05 16:57:37Z denney $ ', "\n";
+    print '$Id: s4 49466 2008-01-10 19:56:49Z wsnyder $ ', "\n";
     pod2usage(-verbose=>2, -exitval => 2);
     exit (1);
 }
@@ -373,6 +375,20 @@ sub cmd_checkout {
       url=>$url, path=>$path, fallback_cmd=>raw_svn_command());
 }
 
+# Usage: s4 quick_commit PATH
+sub cmd_quick_commit {
+    print "cmd_quick_commit ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    !$opts{unknown} or die "%Error: s4 quick_commit: Unknown argument: $opts{unknown}[0]\n";
+    print "opts=",Dumper(\%opts), "\n" if $Debug;
+    my $path = $opts{path}[0];
+    $path = "." if !defined $path;
+    $s4->quick_commit (path => $path,
+		       recurse => (!$opts{"--non-recursive"}),
+		       file => $opts{file},
+		       message => $opts{message},
+		       );
+}
+
 # Usage: s4 snapshot PATH
 sub cmd_snapshot {
     print "cmd_snapshot ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
@@ -521,6 +537,61 @@ in the working copy, and checked in.  S4 works around this (see
 SVN::S4::ViewSpec.pm if you must know), so the viewspec can put any 
 directory at any location.
 
+=head2 fixprop
+
+Processes all files and directories passed as arguments.  Any .cvsignore
+files will be read and set their directory's svn:ignore property.  Any file
+which contains a CVS metacomment, and which do not have a svn:keyword
+property will have the svn:keyword property added.
+
+With -N or --non-recursive, don't recurse across directories.
+
+With --personal, only change files the current user has added, or was the
+last author of.
+
+=head2 help I<subcommand>
+
+Invokes subversion help.  With a subcommand modified or specific to s4,
+also prints s4 help on that command.
+
+=head2 help-summary
+
+Prints a summary of all Subversion and S4 commands.
+
+=head2 info-switches I<path>
+
+Prints a non-recursive "svn info" at the path specified, plus every switch
+point under the path.
+
+=head2 quick-commit|qci PATH
+
+s4 quick-commit, or "qci" for short, performs a commit of the current tree.
+Unlike the normal commit command, qci will not create lock files, and so
+may be significantly faster on large trees.  It is semantically equivelent
+to doing a svn status, then only commiting the files listed as changing
+rather then committing the entire tree.
+
+=head2 scrub [--revision REV] [--url URL] PATH
+
+s4 scrub turns a "used" source tree into a pristine one, as efficiently as it
+can.
+
+WARNING: That means that it will permanently throw away all the changes you've
+made in your working copy.  Is that really what you want?  If not, stop right
+here.
+
+It first does a "svn status" to look for any files that aren't checked in,
+anything that has been added but not checked in, etc. and erases/reverts them
+all.  Then it updates the tree to the specified revision.  When it's done, your
+tree should look exactly like a clean checkout.  (If not it's a bug.)
+
+You probably ask, why not just do "svn revert -R" or "svn update -r".
+Those commands tend to leave some junk behind, or sometimes they get jammed
+(e.g. object of the same name already exists).  Also svn is understandably
+very conservative about erasing a file or directory that it is not SURE is
+checked in already.  But this command is not; it's happy to blow away the 
+changes in your working copy...in fact that's its primary job.
+
 =head2 snapshot
 
 s4 snapshot generates a compact patch file that describes how to reproduce a
@@ -566,53 +637,6 @@ Example of making a snapshot and restoring:
    s4 revert -R . ; rm -f myindex.html   # make it clean again
    bash /tmp/snapshot
 
-
-=head2 scrub [--revision REV] [--url URL] PATH
-
-s4 scrub turns a "used" source tree into a pristine one, as efficiently as it
-can.
-
-WARNING: That means that it will permanently throw away all the changes you've
-made in your working copy.  Is that really what you want?  If not, stop right
-here.
-
-It first does a "svn status" to look for any files that aren't checked in,
-anything that has been added but not checked in, etc. and erases/reverts them
-all.  Then it updates the tree to the specified revision.  When it's done, your
-tree should look exactly like a clean checkout.  (If not it's a bug.)
-
-You probably ask, why not just do "svn revert -R" or "svn update -r".
-Those commands tend to leave some junk behind, or sometimes they get jammed
-(e.g. object of the same name already exists).  Also svn is understandably
-very conservative about erasing a file or directory that it is not SURE is
-checked in already.  But this command is not; it's happy to blow away the 
-changes in your working copy...in fact that's its primary job.
-
-=head2 fixprop
-
-Processes all files and directories passed as arguments.  Any .cvsignore
-files will be read and set their directory's svn:ignore property.  Any file
-which contains a CVS metacomment, and which do not have a svn:keyword
-property will have the svn:keyword property added.
-
-With -N or --non-recursive, don't recurse across directories.
-
-With --personal, only change files the current user has added, or was the
-last author of.
-
-=head2 help I<subcommand>
-
-Invokes subversion help.  With a subcommand modified or specific to s4,
-also prints s4 help on that command.
-
-=head2 help-summary
-
-Prints a summary of all Subversion and S4 commands.
-
-=head2 info-switches I<path>
-
-Prints a non-recursive "svn info" at the path specified, plus every switch
-point under the path.
 
 =head2 update
 
@@ -660,7 +684,7 @@ newer versions will probably break.
 
 The latest version is available from CPAN and from L<http://www.veripool.com/>.
 
-Copyright 2005-2007 by Bryce Denney and Wilson Snyder.  This package is
+Copyright 2005-2008 by Bryce Denney and Wilson Snyder.  This package is
 free software; you can redistribute it and/or modify it under the terms of
 either the GNU Lesser General Public License or the Perl Artistic License.
 

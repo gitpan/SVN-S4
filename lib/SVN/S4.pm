@@ -1,8 +1,8 @@
-# $Id: S4.pm 48306 2007-12-05 18:20:44Z wsnyder $
+# $Id: S4.pm 49466 2008-01-10 19:56:49Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
-# Copyright 2002-2007 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2008 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # General Public License or the Perl Artistic License.
 #
@@ -27,6 +27,7 @@ use SVN::S4::Info;
 use SVN::S4::Path;
 use SVN::S4::Update;
 use SVN::S4::ViewSpec;
+use SVN::S4::QuickCommit;
 use SVN::S4::Snapshot;
 use SVN::S4::StrongRevert;
 use vars qw($Debug);
@@ -35,7 +36,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.021';
+our $VERSION = '1.022';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -90,6 +91,22 @@ our %WCSTAT_STRINGS = (
     $SVN::Wc::Status::obstructed => 'obstructed',
     $SVN::Wc::Status::external => 'external',
     $SVN::Wc::Status::incomplete => 'incomplete',
+);
+our %WCSTAT_LETTERS = (
+    $SVN::Wc::Status::none		=> ' ',
+    $SVN::Wc::Status::unversioned	=> '?',
+    $SVN::Wc::Status::normal		=> ' ',
+    $SVN::Wc::Status::added		=> 'A',
+    $SVN::Wc::Status::missing		=> '!',
+    $SVN::Wc::Status::deleted		=> 'D',
+    $SVN::Wc::Status::replaced		=> 'R',
+    $SVN::Wc::Status::modified		=> 'M',
+    $SVN::Wc::Status::merged		=> 'G',
+    $SVN::Wc::Status::conflicted	=> 'C',
+    $SVN::Wc::Status::ignored		=> 'I',
+    $SVN::Wc::Status::obstructed	=> '!', #?
+    $SVN::Wc::Status::external		=> 'X',
+    $SVN::Wc::Status::incomplete 	=> '!', #?
 );
 our %WCKIND_STRINGS = (
     $SVN::Node::none => 'none',
@@ -595,7 +612,7 @@ Create a new SVN::S4 object.
 
 The latest version is available from CPAN and from L<http://www.veripool.com/>.
 
-Copyright 2002-2007 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2008 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License or the Perl Artistic License.
 
@@ -613,6 +630,7 @@ L<SVN::S4::FixProp>,
 L<SVN::S4::Getopt>,
 L<SVN::S4::Info>,
 L<SVN::S4::Path>,
+L<SVN::S4::QuickCommit>,
 L<SVN::S4::Snapshot>,
 L<SVN::S4::StrongRevert>,
 L<SVN::S4::Update>,

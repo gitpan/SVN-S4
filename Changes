@@ -3,30 +3,34 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
-* SVN::S4 1.021 12/5/2007
+* SVN::S4 1.022 2007/1/10
+
+**	Added s4 quick-checkin command.
+
+* SVN::S4 1.021 2007/12/5
 
 ****	Backed out some unintended experimental changes in 1.020.
 
-* SVN::S4 1.020 12/3/2007
+* SVN::S4 1.020 2007/12/3
 
 **	First major release to CPAN.
 
-* SVN::S4 1.010 3/8/2007
+* SVN::S4 1.010 2007/3/8
 
 **	First external alpha release.
 
-* SVN::S4 1.000 9/12/2006
+* SVN::S4 1.000 2006/9/12
 
 **	First code written.
 
 ----------------------------------------------------------------------
-$Id: Changes 48305 2007-12-05 18:20:20Z wsnyder $
+$Id: Changes 49466 2008-01-10 19:56:49Z wsnyder $
 DESCRIPTION: Documentation on change history for this package
 ----------------------------------------------------------------------
 
 This uses outline mode in Emacs.  See C-h m [M-x describe-mode].
 
-Copyright 2006-2007 by Wilson Snyder.  This program is free software;
+Copyright 2006-2008 by Wilson Snyder.  This program is free software;
 you can redistribute it and/or modify it under the terms of either the GNU
 General Public License or the Perl Artistic License.
 

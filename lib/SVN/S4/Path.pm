@@ -1,4 +1,4 @@
-# $Id: Path.pm 49466 2008-01-10 19:56:49Z wsnyder $
+# $Id: Path.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -19,7 +19,7 @@ use File::Spec;
 use File::Spec::Functions;
 use strict;
 
-our $VERSION = '1.022';
+our $VERSION = '1.030';
 
 ######################################################################
 
@@ -127,7 +127,7 @@ Return contents of the file as a string, or undef if does not exist.
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2002-2008 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU

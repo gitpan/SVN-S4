@@ -1,4 +1,4 @@
-# $Id: Getopt.pm 49466 2008-01-10 19:56:49Z wsnyder $
+# $Id: Getopt.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -26,7 +26,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.022';
+our $VERSION = '1.030';
 
 our %_Aliases =
     (
@@ -817,7 +817,7 @@ Return the option list, with the specified matching argument removed.
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2002-2008 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU

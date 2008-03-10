@@ -1,4 +1,4 @@
-# $Id: ViewSpec.pm 49466 2008-01-10 19:56:49Z wsnyder $
+# $Id: ViewSpec.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -28,7 +28,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.022';
+our $VERSION = '1.030';
 our $Info = 1;
 
 
@@ -465,8 +465,8 @@ sub create_switchpoint {
     open (FMT, $format_file) or die "%Error: $! opening $format_file";
     my $fmt = <FMT>;
     chomp $fmt;
-    if ($fmt != 4) {
-        die "%Error: create_switchpoint: I only know how to create switchpoints in working copy format=4. But this working copy is format " . (0+$fmt);
+    if ($fmt != 4 && $fmt != 8) {
+        die "%Error: create_switchpoint: I only know how to create switchpoints in working copy format=4 or format=8. But this working copy is format " . (0+$fmt);
     }
     my $entries_file = "$basedir/.svn/entries";
     # hacky way first, to show if it works.
@@ -477,14 +477,24 @@ sub create_switchpoint {
     open (OUT, ">$newfile") or die "%Error: $! opening $newfile";
     die "%Error: can't make a switchpoint with a quote in it!" if $targetdir =~ /"/;
     while (<IN>) {
-	if (/name="$targetdir"/) {
-	    die "%Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
+	if ($fmt == 4) {
+	    if (/name="$targetdir"/) {
+		die "%Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
+	    }
+	    if (/<\/wc-entries>/) {
+		# Fmt=4: Just before the </wc-entries> line, add this entry
+		print OUT qq{<entry name="$targetdir" kind="dir"/> \n};
+	    }
+	} elsif ($fmt == 8) {
+	    if (/^$targetdir/) {
+		die "%Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
+	    }
 	}
-	if (/<\/wc-entries>/) {
-	    # just before the last line, add this entry
-	    print OUT qq{<entry name="$targetdir" kind="dir"/> \n};
-	}
-        print OUT;
+	print OUT;
+    }
+    if ($fmt == 8) {
+	# Fmt=8: Right at the end, add this.
+        print OUT "$targetdir\ndir\n" . chr(12) . "\n";
     }
     $self->run ("/bin/mv -f $newfile $entries_file");
 }
@@ -573,7 +583,7 @@ the the URL Bar at revision 50.
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2005-2008 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU

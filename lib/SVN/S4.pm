@@ -1,4 +1,4 @@
-# $Id: S4.pm 49466 2008-01-10 19:56:49Z wsnyder $
+# $Id: S4.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -16,6 +16,7 @@
 package SVN::S4;
 require 5.006_001;
 use File::Find;
+use File::Spec;
 
 use Carp;
 use Data::Dumper;
@@ -36,7 +37,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.022';
+our $VERSION = '1.030';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -201,7 +202,10 @@ sub abs_filename {
         my $try = readlink $filename;
 	last if (!defined $try);
 	print "replace filename $filename with readlink filename $try\n" if $self->debug;
-	$filename = $try;
+	# We need to allow a symlink of just "foo -> bar", note bar has no dir name
+	$filename =~ s!/[^/]*$!!;  # basedir(filename)
+	$filename = File::Spec->rel2abs($try,$filename);
+	print "    new filename $filename\n" if $self->debug;
     }
     return $filename;
 }
@@ -610,7 +614,7 @@ Create a new SVN::S4 object.
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2002-2008 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU

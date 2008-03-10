@@ -1,4 +1,4 @@
-# $Id: Update.pm 49466 2008-01-10 19:56:49Z wsnyder $
+# $Id: Update.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -27,7 +27,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.022';
+our $VERSION = '1.030';
 our $Info = 1;
 
 
@@ -212,7 +212,7 @@ TBD
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2005-2008 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU

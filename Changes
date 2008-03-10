@@ -3,7 +3,13 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
-* SVN::S4 1.022 2007/1/10
+* SVN::S4 1.030 2008/3/10
+
+**	Update to support Subversion 1.4 clients.
+
+****	Fix s4 update of symlinks without directory names. [Mahesh Kumashi]
+
+* SVN::S4 1.022 2008/1/10
 
 **	Added s4 quick-checkin command.
 
@@ -24,15 +30,15 @@ indicates the contributor was also the author of the fix; Thanks!
 **	First code written.
 
 ----------------------------------------------------------------------
-$Id: Changes 49466 2008-01-10 19:56:49Z wsnyder $
+$Id: Changes 51887 2008-03-10 13:46:15Z wsnyder $
 DESCRIPTION: Documentation on change history for this package
 ----------------------------------------------------------------------
 
 This uses outline mode in Emacs.  See C-h m [M-x describe-mode].
 
-Copyright 2006-2008 by Wilson Snyder.  This program is free software;
-you can redistribute it and/or modify it under the terms of either the GNU
-General Public License or the Perl Artistic License.
+Copyright 2006-2008 by Bryce Denney and Wilson Snyder.  This program is
+free software; you can redistribute it and/or modify it under the terms of
+either the GNU General Public License or the Perl Artistic License.
 
 Local variables:
 mode: outline

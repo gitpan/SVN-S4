@@ -1,4 +1,4 @@
-# $Id: FixProp.pm 49466 2008-01-10 19:56:49Z wsnyder $
+# $Id: FixProp.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -26,7 +26,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.022';
+our $VERSION = '1.030';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
@@ -208,7 +208,7 @@ repair.
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2005-2008 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU

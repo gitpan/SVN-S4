@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-#$Id: s4 49466 2008-01-10 19:56:49Z wsnyder $
+#$Id: s4 51888 2008-03-10 13:49:46Z wsnyder $
 ######################################################################
 #
 # Copyright 2002-2008 by Wilson Snyder.  This program is free software;
@@ -96,8 +96,8 @@ if ($Opt_Cmd eq '') {
     # in svn, a few things work even with no subcommand
     if ($Opt_Version) {
 	if (!$Opt_Quiet) {
-	    my $rev = '$Id: s4 49466 2008-01-10 19:56:49Z wsnyder $';
-	    $rev =~ s/^\$Id: s4 ([0-9]+) (.*)/$1/ or die "failed to parse id string: $rev";
+	    my $rev = '$Id: s4 51888 2008-03-10 13:49:46Z wsnyder $';
+	    $rev =~ s/^\$ I d:\s*\S+\s*([0-9]+).*$/$1/x or die "failed to parse id string: $rev";
 	    print "s4 wrapper around subversion (r$rev)\n";
 	    print "by Bryce Denney and Wilson Snyder\n";
 	    print "\n";
@@ -141,7 +141,7 @@ if ($Opt_Cmd eq "help-summary") {
 #----------------------------------------------------------------------
 
 sub usage {
-    print '$Id: s4 49466 2008-01-10 19:56:49Z wsnyder $ ', "\n";
+    print '$Id: s4 51888 2008-03-10 13:49:46Z wsnyder $ ', "\n";
     pod2usage(-verbose=>2, -exitval => 2);
     exit (1);
 }
@@ -682,7 +682,7 @@ newer versions will probably break.
 
 =head1 DISTRIBUTION
 
-The latest version is available from CPAN and from L<http://www.veripool.com/>.
+The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
 Copyright 2005-2008 by Bryce Denney and Wilson Snyder.  This package is
 free software; you can redistribute it and/or modify it under the terms of

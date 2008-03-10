@@ -1,0 +1,355 @@
+Index: lib/SVN/S4/ViewSpec.pm
+===================================================================
+--- lib/SVN/S4/ViewSpec.pm	(revision 33618)
++++ lib/SVN/S4/ViewSpec.pm	(working copy)
+@@ -21,7 +21,16 @@
+ #
+ # Top of tree is: $self->{viewspec_tree}
+ #
+-# Each node is a hashref with a few common keys:
++# Each node is a hashref that looks like:
++#   $node = {
++#     url => "http://bla/path",
++#     rev => 1234,
++#     dirs => {
++#       'subdir1' => $node_subdir1,
++#       'subdir2' => $node_subdir2,
++#     },
++#     in_repo => 0,   # 1=in repository, 0=not in repository
++#   };
+ #
+ 
+ package SVN::S4::ViewSpec;
+@@ -163,7 +172,7 @@
+ sub add_to_vsmap {
+     my $self = shift;
+     my %params = (#item=>,
+-                  #override=>,
++                  #can_override=>,
+                   @_);
+     # This item replaces any previous item that matches it, e.g.
+     #  1. map a/b/c to url1
+@@ -177,8 +186,8 @@
+ 	my $actdir = $vsmap[$i]->{dir};
+ 	$self->dbg ("checking $cmd on $actdir");
+         if ($actdir =~ /^$params{item}->{dir}/) {
+-	    if ($params{override} || $cmd eq 'unmap') {
+-		# If override is set, then you are allowed to override.
++	    if ($params{can_override} || $cmd eq 'unmap') {
++		# If can_override is set, then you are allowed to override.
+ 		# Anybody is allowed to override an unmap command.
+ 		$self->dbg ("deleting action=$cmd on dir=$actdir");
+ 		push @delete_indices, $i;
+@@ -191,9 +200,60 @@
+ 	splice (@vsmap, $i, 1);
+     }
+     push @vsmap, $params{item};
+-    #### add to viewspec tree
+ }
+ 
++sub add_to_vstree {
++    my $self = shift;
++    my %params = (#path=>,    # path relative the top of tree, e.g. "A/D/G"
++                  #node=>,
++                  #can_override=>,
++                  @_);
++    # make sure there are no extra slashes at beginning or end
++    die "malformed path $params{path}" if $params{path} =~ m%^/% || $params{path} =~ m%/$%;
++    my $node = $self->{viewspec_tree};
++    # Travel down the tree, creating empty nodes as necessary until $node points
++    # to the node corresponding to $params{path}.  It is important to distinguish
++    # empty nodes from nodes with a URL of void.  An empty node means that the viewspec
++    # did not specify what goes there, so the node may be filled from the repository.
++    # A void node means that the viewspec asked for that node to be switched to void,
++    # so it will be an empty directory no matter what the repository says would normally
++    # be there.
++    foreach my $dirpart (split ('/', $params{path})) {
++	my $next = $node->{dirs}->{$dirpart};
++	if (!defined $next) {
++	    $node->{dirs}->{$dirpart} = {};
++	    $next = $node->{dirs}->{$dirpart};
++	}
++	$node = $next;
++    }
++    if (!$params{can_override} && (scalar (keys %{$node}) > 0)) {
++	print Dumper($node);
++	$self->error("view line for dir '$params{path}' collides with previous line");
++    }
++    # copy everything from the parameter data structure to $node
++    foreach my $key (keys %{$params{node}}) {
++        $node->{$key} = $params{node}->{$key};
++    }
++    #$self->dbg("after add_to_vstree $params{path}, viewspec tree is now:\n", Dumper($self->{viewspec_tree}));
++}
++
++# call with wcpath like "A/B" and it will return the node entry for A/B, if any.
++sub vstree_get_node {
++    my $self = shift;
++    my %params = (#wcpath=>,    # path relative the top of tree, e.g. "A/D/G"
++                  @_);
++    # make sure there are no extra slashes at beginning or end
++    die "malformed path $params{wcpath}" if $params{wcpath} =~ m%^/% || $params{wcpath} =~ m%/$%;
++    my $node = $self->{viewspec_tree};
++    # travel down the tree. if any node does not exist, return undef.
++    foreach my $dirpart (split ('/', $params{wcpath})) {
++	my $next = $node->{dirs}->{$dirpart};
++	return if !defined $next;
++	$node = $next;
++    }
++    return $node;
++}
++
+ sub viewspec_cmd_view {
+     my $self = shift;
+     my ($url, $dir, $revtype, $rev) = @_;
+@@ -220,7 +280,9 @@
+     }
+     $self->ensure_valid_rev_string($rev);
+     my $item = { cmd=>'map', url=>$url, dir=>$dir, rev=>$rev };
+-    $self->add_to_vsmap(item=>$item, override=>0);
++    $self->add_to_vsmap(item=>$item, can_override=>0);
++    my $node = {url=>$url, rev=>$rev, dirs=>{}, in_repo=>undef};
++    $self->add_to_vstree(path=>$dir, node=>$node, can_override=>0);
+ }
+ 
+ sub viewspec_cmd_unview {
+@@ -229,7 +291,9 @@
+     $self->dbg ("viewspec_cmd_unview: dir=$dir");
+     my $ndel = 0;
+     my $item = { cmd=>'unmap', dir=>$dir };
+-    $self->add_to_vsmap (item=>$item, override=>1);
++    $self->add_to_vsmap (item=>$item, can_override=>1);
++    my $node = {url=>undef, rev=>undef, dirs=>{}, in_repo=>undef};
++    $self->add_to_vstree(path=>$dir, node=>$node, can_override=>1);
+ }
+ 
+ sub viewspec_cmd_include {
+@@ -268,45 +332,6 @@
+     return 1;  # all revs were the same, return true
+ }
+ 
+-sub lookup_mapping {
+-    my $self = shift;
+-    my %params = (#wcpath=>,
+-                  @_);
+-    my $longest_match = -1;
+-    my $match;
+-    my $url;
+-    my $rev;
+-    foreach my $item (@vsmap) {
+-        print "Comparing $params{wcpath} with map item: ", Dumper($item), "\n" if $self->debug>1;
+-	if ($params{wcpath} =~ /^$item->{dir}/) {
+-	    if (length $item->{dir} > $longest_match) {
+-	        $longest_match = length $item->{dir};
+-		$match = $item;
+-		if ($item->{cmd} eq 'map') {
+-		    # it's a match. is it the longest match?
+-		    my $nonmatching = substr ($params{wcpath}, $longest_match);
+-		    $nonmatching =~ s/^\/*//;  # remove leading slash
+-		    $self->dbg("nonmatching part is $nonmatching");
+-		    $url = $item->{url};
+-		    $url .= "/" . $nonmatching if length $nonmatching > 0;
+-		    $rev = $item->{rev};
+-		} elsif ($item->{cmd} eq 'unmap') {
+-		    undef $url;
+-		    undef $rev;
+-		} else {
+-		    $self->error ("unknown cmd in vsmap '$item->{cmd}'");
+-		}
+-	    }
+-	}
+-    }
+-    if (!defined $url || !defined $rev) {
+-	return;
+-        #$self->error("wcpath '$params{wcpath}': did not match anything");
+-    }
+-    $self->dbg("wcpath '$params{wcpath}' matched '", Dumper($match), "'. returning url=$url and rev=$rev\n");
+-    return ($url, $rev);
+-}
+-
+ sub has_submappings {
+     my $self = shift;
+     my %params = (#wcpath=>,
+@@ -362,21 +387,12 @@
+ 
+ sub list_switchpoints_at {
+     my $self = shift;
+-    my %params = (#wcpath=>,
++    my %params = (#node=>,
+                   @_);
+-    # Find switchpoints that branch directly off of wcpath.
+-    # E.g. list of switchpoints = A, A/B, A/B/C, and A/B/D/F.
+-    # The switchpoints at A/B are C and D.
+-    my %switchpoints;  # use hash to avoid the dups
+-    foreach my $item (@vsmap) {
+-	my $dir = $item->{dir};
+-	$self->dbg("checking if '$dir' matches $params{wcpath}");
+-	if ($dir =~ s/^$params{wcpath}//) {
+-	    $self->dbg("found match '$dir' under $params{wcpath}");
+-	    $dir =~ s%^/%%g;   # remove leading slashes
+-	    $dir =~ s%/.*%%g;  # remove slash and anything after it
+-	    $switchpoints{$dir}=1 if length $dir > 0;
+-	}
++    my %switchpoints;
++    foreach my $childname (keys %{$params{node}->{dirs}}) {
++	my $child = $params{node}->{dirs}->{$childname};
++	$switchpoints{$childname}=1 if !$child->{in_repo};
+     }
+     return keys %switchpoints;
+ }
+@@ -390,8 +406,7 @@
+ 
+ sub fix_urls_recurse {
+     my $self = shift;
+-    my %params = (#wctop=>,
+-                  #wcpath=>,
++    my %params = (#wcpath=>,
+                   #basepath=>,
+ 		  #node=>,
+                   @_);
+@@ -400,33 +415,25 @@
+     $path .= "/" if length $path > 0 && length $params{wcpath} > 0;
+     $path .= $params{wcpath} if length $params{wcpath} > 0;
+     my $current_url = $self->file_url (filename=>$path, assert_exists=>0);
+-    my ($desired_url,$desired_rev) = $self->lookup_mapping (wcpath=>$params{wcpath});
+-    if (!defined $desired_url) {
+-        $self->dbg("desired_url is null for $path");
++    my $node = $params{node};
++    die "node is undefined for wcpath=$params{wcpath}" if !defined $node;
++    die "node at $params{wcpath} has undefined url" if !defined $node->{url};
++    if ($node->{url} eq 'void') {
++        $node->{url} = $self->void_url;
+     }
+-    my $inrepo = $desired_url && $self->is_file_in_repo(url=>$desired_url);
++    $node->{in_repo} = $self->is_file_in_repo(url=>$node->{url});
+     my $has_submappings = $self->has_submappings(wcpath=>$params{wcpath});
+-    my $disappear = !defined $desired_url && !$has_submappings && !$inrepo && !(-e $path);
+-    if (!$inrepo) {
+-        $desired_url = $self->void_url;
+-    }
+-    $self->dbg ("for $params{wcpath}, inrepo=$inrepo, has_submap=$has_submappings, disappear=$disappear");
+-    $desired_rev ||= $self->{revision};   # needed for unviews
+-    $params{node}->{url} = $desired_url;
+-    $params{node}->{rev} = $desired_rev;
+-    if ($disappear) {
+-        $self->dbg("making path $params{wcpath} disappear");
+-	$params{node}->{disappear} = 1;
+-    } elsif ($current_url && $current_url eq $desired_url) {
++    $self->dbg ("for $params{wcpath}, inrepo=$node->{in_repo}, has_submap=$has_submappings");
++    if ($current_url && $current_url eq $node->{url}) {
+         $self->dbg("url is right for '$params{wcpath}'");
+     } else {
+-	my @cmd = ('switch', $desired_url, $path, '--revision', $desired_rev);
+-	if ($desired_url eq $self->void_url) {
++	my @cmd = ('switch', $node->{url}, $path, '--revision', $node->{rev});
++	if ($node->{url} eq $self->void_url) {
+ 	    print "s4: Creating empty directory $params{wcpath}\n";
+ 	    push @cmd, "--quiet" unless $self->debug;
+ 	    $params{node}->{url} = 'void';
+ 	} else {
+-	    print "s4: Switching $params{wcpath} to $desired_url\n";
++	    print "s4: Switching $params{wcpath} to $node->{url}\n";
+ 	    $params{node}->{has_submappings} = $has_submappings;
+ 	    if ($params{node}->{has_submappings}) {
+ 	        push @cmd, "--non-recursive";
+@@ -435,24 +442,40 @@
+ 	$self->create_switchpoint_hierarchical($params{basepath}, $params{wcpath});
+ 	$self->run_svn(@cmd);
+     }
+-    if (!$disappear) {
+-	my @disk = $self->list_subdirs_on_disk (path=>$path);
+-	my @repo = $self->list_subdirs_in_repo (path=>$path, revision=>$self->{revision});
+-	my @switches = $self->list_switchpoints_at (wcpath=>$params{wcpath});
+-	print "disk=", Dumper(\@disk) if $self->debug > 1;
+-	print "repo=", Dumper(\@repo) if $self->debug > 1;
+-	print "switches=", Dumper(\@switches) if $self->debug > 1;
+-	my @all = remove_duplicates_from_list (@disk, @repo, @switches);
+-	foreach my $subdir (@all) {
+-	    $self->dbg("Recurse into $subdir");
+-	    my $newdir = $params{wcpath};
+-	    $newdir .= "/" unless $newdir eq "";
+-	    $newdir .= $subdir;
+-	    $params{node}->{dirs}->{$subdir} ||= {};   # set to empty hash, if not defined
+-		$self->fix_urls_recurse(wctop=>$params{wctop}, wcpath=>$newdir, basepath=>$params{basepath},
+-			node=>$params{node}->{dirs}->{$subdir});
++    my @disk = $self->list_subdirs_on_disk (path=>$path);
++    my @repo = $self->list_subdirs_in_repo (path=>$path, revision=>$self->{revision});
++    foreach my $subdir (@repo) {
++	$self->dbg("check if there is a node for $subdir");
++	my $childurl = $node->{url} . "/$subdir";
++	my $childrev = $self->{revision};
++	my $undef_node = !defined ($node->{dirs}->{$subdir});
++	my $empty_node = !$undef_node && !defined ($node->{dirs}->{$subdir}->{url});
++	if ($undef_node) {
++	    # if there is no node there yet, make one from scratch.
++	    $self->dbg("making in_repo=1 node for $subdir");
++	    $node->{dirs}->{$subdir} = { url=>$childurl, rev=>$childrev, in_repo=>1 };
+ 	}
++	if ($empty_node || $undef_node) {
++	    $node->{dirs}->{$subdir}->{url} = $childurl;
++	    $node->{dirs}->{$subdir}->{rev} = $childrev;
++	}
+     }
++    # It is still possible that empty nodes remain, for example if you may "A/D" to some URL
++    # and A isn't in the repository.
++    my @switches = $self->list_switchpoints_at (node=>$node);
++    print "disk=", Dumper(\@disk) if $self->debug > 1;
++    print "repo=", Dumper(\@repo) if $self->debug > 1;
++    print "switches=", Dumper(\@switches) if $self->debug > 1;
++    my @all = remove_duplicates_from_list (@repo, @switches);
++    foreach my $subdir (@all) {
++	$self->dbg("Recurse into $subdir");
++	my $newdir = $params{wcpath};
++	$newdir .= "/" unless $newdir eq "";
++	$newdir .= $subdir;
++	$params{node}->{dirs}->{$subdir} ||= {};   # set to empty hash, if not defined
++	    $self->fix_urls_recurse(wcpath=>$newdir, basepath=>$params{basepath},
++		    node=>$params{node}->{dirs}->{$subdir});
++    }
+     $self->dbg("RETURN FROM fix_urls_recurse wcpath=$params{wcpath} basepath=$params{basepath}");
+ }
+ 
+@@ -477,15 +500,19 @@
+     # Undo those switch points, if possible.
+     $self->remove_unused_switchpoints (basepath=>$params{path});
+     # add one more map item, which defines the url mapping of the top level.
+-    my $base_url = $self->file_url (filename=>$params{path});
+-    my $item = { cmd=>'map', url=>$base_url, dir=>'', rev=>$self->{revision} };
+-    push @vsmap, $item;
++    my $base_url = $self->file_url (filename=>$params{path});  #FIXME remove
++    my $item = { cmd=>'map', url=>$base_url, dir=>'', rev=>$self->{revision} };  #FIXME remove
++    push @vsmap, $item;  #FIXME remove
++    # add to viewspec_tree
++    $self->{viewspec_tree}->{url} = $base_url;
++    $self->{viewspec_tree}->{rev} = $self->{revision};
++    $self->{viewspec_tree}->{in_repo} = 1;
+     my $base_uuid;
+     # compute voids url once
+     $self->void_url(url => $self->file_url(filename=>$params{path}));
+-    $self->{mytree} = {};
+-    $self->fix_urls_recurse (wctop=>$params{path}, basepath=>$params{path}, wcpath=>'', node=>$self->{mytree});
+-    $self->dbg("mytree = ", Dumper($self->{mytree}));
++    $self->dbg ("viewspec_tree = ", Dumper($self->{viewspec_tree}));
++    $self->fix_urls_recurse (basepath=>$params{path}, wcpath=>'', node=>$self->{viewspec_tree});
++    $self->dbg("viewspec_tree = ", Dumper($self->{viewspec_tree}));
+     $self->dbg("done with apply_viewspec_new");
+     # now do an update?
+     $self->minimal_update_tree (path=>$params{path});
+@@ -510,7 +537,7 @@
+     # that are needed.
+     my $needed = $self->minimal_update_tree_recurse (
+ 	    path=>$params{path},
+-	    node=>$self->{mytree},
++	    node=>$self->{viewspec_tree},
+ 	    );
+     $self->dbg ("minimal_update_tree needed = ", Dumper($needed));
+     # do the commands
+@@ -525,7 +552,7 @@
+ }
+ 
+ # Call minimal_update_tree_recurse with a node and a path.  The
+-# node is a reference to a piece of $self->{mytree} and path is
++# node is a reference to a piece of $self->{viewspec_tree} and path is
+ # the path that leads to it, e.g. "A/B/C".  This method examines
+ # its rev and the revs of its children, and returns a hashref
+ # with entries that describe how to update the node and its children.

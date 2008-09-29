@@ -1,4 +1,3 @@
-# $Id: FixProp.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -26,7 +25,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
@@ -111,7 +110,7 @@ sub _fixprops_recurse {
 			_fixprops_recurse($self,$param,$file);
 		    }
 		} else {
-		    if ($param->{recurse} || $file =~ m!/\.cvsignore$!) {
+		    if ($param->{recurse} || $file =~ m!/(\.cvsignore|\.gitignore)$!) {
 			# If not recursing, we did a dir with -N; process the dir's ignore
 			_fixprops_recurse($self,$param,$file);
 		    }
@@ -122,7 +121,7 @@ sub _fixprops_recurse {
     }
     else {
 	# File
-	if ($filename =~ m!^(.*)/\.cvsignore$!) {
+	if ($filename =~ m!^(.*)/(\.cvsignore|\.gitignore)$!) {
 	    my $dir = $1;
 	    print ".cvsignore check $dir\n" if $self->debug;
 	    if ($self->file_url(filename=>$dir)) {
@@ -145,8 +144,9 @@ sub _fixprops_recurse {
 sub _fixprops_add_ignore {
     my $self = shift;
     my $dir = shift;
- 
-    my $ignores = SVN::S4::Path::wholefile("$dir/.cvsignore");
+
+    my $ignores = (SVN::S4::Path::wholefile("$dir/.cvsignore")
+		   || SVN::S4::Path::wholefile("$dir/.gitignore"));
     if (defined $ignores) { # else not found
 	$ignores .= "\n";
 	$ignores =~ s/[ \t\n\r\f]+/\n/g;
@@ -201,8 +201,8 @@ The following methods extend to the global SVN::S4 class.
 
 =item $s4->fixprops
 
-Recurse the specified files, searching for .cvsignore or keywords that need
-repair.
+Recurse the specified files, searching for .cvsignore, .gitignore or
+keywords that need repair.
 
 =back
 

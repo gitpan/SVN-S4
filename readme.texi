@@ -4,7 +4,6 @@
 @settitle Perl SVN::S4 Installation
 @c %**end of header
 
-@c $Id: readme.texi 49466 2008-01-10 19:56:49Z wsnyder $
 @c DESCRIPTION: TexInfo: DOCUMENT source run through texinfo to produce README file
 @c Use 'make README' to produce the output file
 @c Before release, run C-u C-c C-u C-a (texinfo-all-menus-update)
@@ -15,12 +14,12 @@
 This is the SVN::S4 Perl Package.
 
 @menu
-* Copyright::                   
-* Description::                 
-* Obtaining Distribution::      
-* Known Bugs::                  
-* Supported Systems::           
-* Installation::                
+* Copyright::
+* Description::
+* Obtaining Distribution::
+* Known Bugs::
+* Supported Systems::
+* Installation::
 @end menu
 
 @node Copyright, Description, Top, Top
@@ -39,15 +38,15 @@ your own risk.
 @section Description
 
 This package adds additional Subversion support commands, similar to
-the P4::C4 package.  These commands let you apply .cvsignore files,
-snapshot areas and cleanup ignored files. You can also create views
-that consist of different repository areas, and deal with them as if
-it was a larger checkout.
+the P4::C4 package.  These commands let you apply .cvsignore or
+.gitignore files, snapshot areas and cleanup ignored files. You can
+also create views that consist of different repository areas, and deal
+with them as if it was a larger checkout.
 
 @node Obtaining Distribution, Known Bugs, Description, Top
 @section Obtaining Distribution
 
-The latest version is available at 
+The latest version is available at
 @uref{http://www.perl.org/CPAN/}
 
 Download the latest package from that site, and decompress.

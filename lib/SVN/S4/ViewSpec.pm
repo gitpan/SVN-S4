@@ -1,4 +1,3 @@
-# $Id: ViewSpec.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -28,7 +27,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 our $Info = 1;
 
 
@@ -96,7 +95,7 @@ sub parse_viewspec {
                   @_);
     my $fn = $params{filename};
     # NOTE: parse_viewspec must be called with revision parameter.
-    # But when a viewspec includes another viewspec, this function will be 
+    # But when a viewspec includes another viewspec, this function will be
     # called again and revision will be undefined.
     $self->{revision} = $params{revision} if $params{revision};
     # Remember the top level viewspec file. When doing an include, the included
@@ -228,7 +227,7 @@ sub viewspec_cmd_include {
     my ($file) = @_;
     vsdebug "viewspec_cmd_include $file";
     $self->{parse_viewspec_include_depth}++;
-    error "Excessive viewspec includes. Is this infinite recursion?" 
+    error "Excessive viewspec includes. Is this infinite recursion?"
          if $self->{parse_viewspec_include_depth} > 100;
     $self->parse_viewspec (filename=>$file);
     $self->{parse_viewspec_include_depth}--;
@@ -328,7 +327,7 @@ sub apply_viewspec {
     # Look for any switch points that S4 __used to__ maintain, but no longer does.
     # Undo those switch points, if possible.
     $self->undo_switches (basepath=>$params{path});
-    # Set viewspec hash in the S4 object.  The caller MAY decide to save the 
+    # Set viewspec hash in the S4 object.  The caller MAY decide to save the
     # state by calling $self->save_viewspec_state, or not.
     $self->{viewspec_hash} = $self->viewspec_hash;
 }
@@ -412,7 +411,7 @@ sub remove_switchpoint {
 	 # the .svn directory itself.  This may "fail" because of leftover .nfs crap;
 	 # then what's the right answer?
          $self->run ("rm -rf $path/.svn");
-         $self->run ("rmdir $path"); 
+         $self->run ("rmdir $path");
 	 print "s4: running svn update -r $self->{revision} on $abspath\n" if $self->debug;
 	 $self->run ("svn up -N --revision $self->{revision} $path");
      } else {
@@ -525,7 +524,7 @@ svn updates and svn switches required to make your working copy match the
 viewspec file.
 
 A viewspec file format is a text file containing a series of one-line
-commands.  Anything after a # character is considered a comment. 
+commands.  Anything after a # character is considered a comment.
 Whitespace and blank lines are ignored.  The commands must be one of:
 
   set  VAR   VALUE
@@ -566,7 +565,7 @@ Whitespace and blank lines are ignored.  The commands must be one of:
 
 Parse_viewspec reads the file specified by FILENAME, and builds up
 a list of svn actions that are required to build the working area.
-The actions are stored in @list_actions, and each one is a hash 
+The actions are stored in @list_actions, and each one is a hash
 containing a command, a directory, etc.
 
 The revision parameter is used as the default revision number for

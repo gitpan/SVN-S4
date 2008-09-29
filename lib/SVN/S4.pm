@@ -1,4 +1,3 @@
-# $Id: S4.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -37,7 +36,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -126,7 +125,7 @@ sub new {
 		dryrun => undef,
 		debug => $Debug,
 		revision => undef,  # default rev for viewspec operations
-		s4_binary => "s4",    
+		s4_binary => "s4",
 		svn_binary => "svn",   # overridden by command line or env variable
 		viewspec_file => "Project.viewspec",
 		state_file => ".svn/s4_state",
@@ -141,7 +140,7 @@ sub new {
     # Copy all environment variables into viewspec_vars. Later the viewspec
     # "set" command will either use them or override them.
     foreach (keys %ENV) {
-        $self->{viewspec_vars}->{$_} = $ENV{$_}; 
+        $self->{viewspec_vars}->{$_} = $ENV{$_};
     }
     my %client_params = %{$self};
     $self->{_client} = new SVN::Client
@@ -181,12 +180,12 @@ sub clean_filename {
     my $self = shift;
     my $filename = shift;
     $filename =~ s%^\./%%;  # Sometimes results in errors
-    # Multiple slashes in pathname (foo//bar) works for many purposes, 
+    # Multiple slashes in pathname (foo//bar) works for many purposes,
     # but svn::client says:
     #   perl: subversion/libsvn_subr/path.c:113: svn_path_join: Assertion `is_canonical (base, blen)' failed.
-    $filename =~ s%//+%/%g;  
+    $filename =~ s%//+%/%g;
     # Remove slash at end
-    $filename =~ s%/$%%;  
+    $filename =~ s%/$%%;
     return $filename;
 }
 
@@ -238,7 +237,7 @@ sub run {
     print "+ '", join("' '",@_), "'\n" if $self->debug;
     local $! = undef;
     system @_;
-    my $status = $?; my $msgx = $!; 
+    my $status = $?; my $msgx = $!;
     if (!$self->debug) {
 	# Generally: Don't print a message, svn already did.
 	if ($status == -1) {

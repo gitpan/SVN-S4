@@ -1,4 +1,3 @@
-# $Id: StrongRevert.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -14,8 +13,8 @@
 ######################################################################
 #
 # Goal: Completely clean a svn source tree.
-# Usage: 
-#   s4 scrub [--revision REV] [--url URL] 
+# Usage:
+#   s4 scrub [--revision REV] [--url URL]
 #            [--verbose] [--debug] PATH
 #
 # Ideas:
@@ -46,7 +45,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 our $Info = 1;
 
 
@@ -79,6 +78,7 @@ sub strong_revert_main {
     my %params = (#path=>,
                   #revision=>,
                   #url=>,
+		  #verbose=>1,
                   @_);
     $Strong_Revert_Statfunc_Debug = $self->debug || 0;
     # If there's not already a svn tree there, just erase it and check out a new
@@ -118,9 +118,9 @@ sub strong_revert_main {
     #   cleanup, update, cleanup (if needed)
     # The cleanup stage does an svn stat, then a remove and/or revert on anything
     # that is not clean.  The update is a normal svn update.
-    # 
+    #
 
-    # Why cleanup before update?  
+    # Why cleanup before update?
     # If you don't clean up unversioned files (? on svn stat output), update can
     # get stuck in some cases, for example if the update tries to add a new FILE1,
     # but you have created it already
@@ -128,7 +128,7 @@ sub strong_revert_main {
     #   svn: Failed to add file 'DmaUeRtl.sp': object of the same name already exists
     # If all ? files are removed before the update, the update has a better chance
     # of success.
-    $self->cleanup_stage($canonical_path);
+    $self->cleanup_stage(\%params, $canonical_path);
 
     # Update the tree.  Hopefully this goes to completion.
     # If the update fails, we're going
@@ -160,21 +160,21 @@ sub strong_revert_main {
 	# just in case.
 	# NOTE: One could make this more efficient by only considering cleanup
 	# where the externals were.  That would run faster than a complete "svn status".
-	$self->cleanup_stage($canonical_path);
+	$self->cleanup_stage(\%params, $canonical_path);
     }
     # wipe out any s4 state files
     $self->clear_viewspec_state (path=>$canonical_path);
 }
 
 sub cleanup_stage {
-    my ($self, $path) = @_;
+    my ($self, $params, $path) = @_;
     print "Cleaning... ";
     flush STDOUT;
     my @unclean = $self->find_unclean_stuff ($path);
     print "\n";
     flush STDOUT;
     if ($#unclean >= 0) {
-	$self->cleanup ($path, @unclean);
+	$self->cleanup ($params, $path, @unclean);
     }
 }
 
@@ -240,6 +240,7 @@ sub find_unclean_stuff {
 
 sub cleanup {
     my $self = shift;
+    my $params = shift;
     my ($path, @list) = @_;
     my @rmlist;
     my @revlist;
@@ -272,7 +273,7 @@ sub cleanup {
 	} elsif ($stat eq 'normal') {
 	    # if text status is normal, then why did it show up?
 	    # Maybe a property change. Revert those.
-	    # Maybe a svn switch. 
+	    # Maybe a svn switch.
 	    # In any case, just add it to the revert list.
 	    if ($propstat ne 'none') {
 		print "$obj->{path} has a property change. revert it\n" if $self->debug;
@@ -283,7 +284,7 @@ sub cleanup {
 		print "$obj->{path} showed up on svn status, but it isn't a text or property change. revert it, to be safe.\n" if $self->debug;
 		push @revlist, $obj->{path};
 	    }
-	} elsif ($stat eq 'unversioned' 
+	} elsif ($stat eq 'unversioned'
 	         || $stat eq 'ignored') {
 	    # just delete it
 	    print "$obj->{path} is $stat. must remove it\n" if $self->debug;
@@ -304,11 +305,12 @@ sub cleanup {
     my $changes = 0;
     # remove everything on remove list
     if (@rmlist) {
-	print "  Deleting ", ($#rmlist+1), " files/directories\n";
+	#print "  Deleting ", ($#rmlist+1), " files/directories\n" if $params->{verbose};
 	open (RM, "| xargs --null rm -rf") or die "%Error: open pipe to xargs rm";
 	foreach my $name (@rmlist) {
 	    next if $name eq $path || $name eq '.' || $name eq '..';
 	    print "  + rm -rf '$name'\n" if $self->debug;
+	    print "D    $name\n" if $params->{verbose};
 	    print RM "$name\0";
 	    $changes++;
 	}
@@ -316,10 +318,11 @@ sub cleanup {
     }
     # revert everything on revert list
     if (@revlist) {
-	print "  Svn reverting ", ($#revlist+1), " files/directories\n";
+	#print "  Svn reverting ", ($#revlist+1), " files/directories\n" if $params->{verbose};
 	open (REV, "| xargs --null $self->{svn_binary} revert -q") or die "%Error: open pipe to xargs revert";
 	foreach my $name (@revlist) {
 	    print "  + $self->{svn_binary} revert $name\n" if $self->debug;
+	    print "U    $name\n" if $params->{verbose};
 	    print REV "$name\0";
 	    $changes++;
 	}
@@ -327,13 +330,14 @@ sub cleanup {
     }
     # "svn rm --force" everything on svnrmlist
     if (@svnrmlist) {
-	print "  Svn removing ", ($#svnrmlist+1), " files/directories\n";
+	#print "  Svn removing ", ($#svnrmlist+1), " files/directories\n" if $params->{verbose};
 	open (REV, "| xargs --null $self->{svn_binary} rm -q --force") or die "%Error: open pipe to xargs svn rm";
 	# Reverse sort list by length, so that any subdirectories will be removed
 	# before the parent directory. Otherwise you run into "bla is not a working copy"
 	# problems and some of the removes are not done.
 	foreach my $name (sort {length $b cmp length $a} @svnrmlist) {
 	    print "  + $self->{svn_binary} rm --force $name\n" if $self->debug;
+	    print "D    $name\n" if $params->{verbose};
 	    print REV "$name\0";
 	    $changes++;
 	}
@@ -414,7 +418,7 @@ Scripts:
 
 =head1 DESCRIPTION
 
-SVN::S4::StrongRevert 
+SVN::S4::StrongRevert
 
 =head1 METHODS
 

@@ -1,4 +1,3 @@
-# $Id: QuickCommit.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # See copyright, etc in below POD section.
 ######################################################################
 
@@ -17,7 +16,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 
 our @Quick_Commit_status_data;
 our $Quick_Commit_self;
@@ -142,7 +141,7 @@ Scripts:
 
 =head1 DESCRIPTION
 
-SVN::S4::QuickCommit 
+SVN::S4::QuickCommit
 
 =head1 METHODS
 

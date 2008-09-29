@@ -3,11 +3,17 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
+* SVN::S4 1.031 2008/9/29
+
+***	Add verbose messages to 's4 scrub'.  [Brian Cassell]
+
+***	Recognize .gitignore files similar to .cvsignore files.
+
 * SVN::S4 1.030 2008/3/10
 
 **	Update to support Subversion 1.4 clients.
 
-****	Fix s4 update of symlinks without directory names. [Mahesh Kumashi]
+****	Fix s4 update of symlinks without directory names. [Mahesh Kumashikar]
 
 * SVN::S4 1.022 2008/1/10
 
@@ -30,7 +36,6 @@ indicates the contributor was also the author of the fix; Thanks!
 **	First code written.
 
 ----------------------------------------------------------------------
-$Id: Changes 51887 2008-03-10 13:46:15Z wsnyder $
 DESCRIPTION: Documentation on change history for this package
 ----------------------------------------------------------------------
 

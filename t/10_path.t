@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id: 10_path.t 49466 2008-01-10 19:56:49Z wsnyder $
 # DESCRIPTION: Perl ExtUtils: Type 'make test' to test this package
 #
 # Copyright 2002-2008 by Wilson Snyder.  This program is free software;

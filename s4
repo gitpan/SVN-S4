@@ -1,16 +1,5 @@
 #!/usr/bin/perl -w
-#$Id: s4 51888 2008-03-10 13:49:46Z wsnyder $
-######################################################################
-#
-# Copyright 2002-2008 by Wilson Snyder.  This program is free software;
-# you can redistribute it and/or modify it under the terms of either the GNU
-# General Public License or the Perl Artistic License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
+# See copyright, etc in below POD section.
 ######################################################################
 
 require 5.006_001;
@@ -32,10 +21,12 @@ use strict;
 
 use SVN::S4;
 
-use vars qw ($Debug);
+use vars qw ($Debug $VERSION);
 
 #======================================================================
 # main
+
+$VERSION = '1.031';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -77,7 +68,7 @@ if (! GetOptions (
 $Opt_Cmd = '' if !defined $Opt_Cmd;  # to avoid perl warnings about undef
 # Put any CmdParamsEnd at the end of the list, so that they will be after the
 # svn subcommand.
-push @Opt_CmdParams, @Opt_CmdParamsEnd;  
+push @Opt_CmdParams, @Opt_CmdParamsEnd;
 undef @Opt_CmdParamsEnd;
 print "Cmd: $Opt_Cmd\n" if $Debug;
 print "  Pos: '",join("' '",@Opt_CmdParams),"'\n" if $Debug;
@@ -96,9 +87,7 @@ if ($Opt_Cmd eq '') {
     # in svn, a few things work even with no subcommand
     if ($Opt_Version) {
 	if (!$Opt_Quiet) {
-	    my $rev = '$Id: s4 51888 2008-03-10 13:49:46Z wsnyder $';
-	    $rev =~ s/^\$ I d:\s*\S+\s*([0-9]+).*$/$1/x or die "failed to parse id string: $rev";
-	    print "s4 wrapper around subversion (r$rev)\n";
+	    print "s4 wrapper around subversion (version $VERSION)\n";
 	    print "by Bryce Denney and Wilson Snyder\n";
 	    print "\n";
 	}
@@ -141,7 +130,7 @@ if ($Opt_Cmd eq "help-summary") {
 #----------------------------------------------------------------------
 
 sub usage {
-    print '$Id: s4 51888 2008-03-10 13:49:46Z wsnyder $ ', "\n";
+    print "Version $VERSION\n";
     pod2usage(-verbose=>2, -exitval => 2);
     exit (1);
 }
@@ -282,7 +271,7 @@ sub cmd_switch {
     #
     # See if the directory they tried to switch exists. If so, nothing to do.
     if (-d $path) {
-        cmd_svn(); 
+        cmd_svn();
 	$s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
 	return check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
     }
@@ -371,7 +360,7 @@ sub cmd_checkout {
 	$path = $url;
 	$path =~ s/.*\///;
     }
-    $s4->checkout (revision=>$opts{revision}[0], 
+    $s4->checkout (revision=>$opts{revision}[0],
       url=>$url, path=>$path, fallback_cmd=>raw_svn_command());
 }
 
@@ -411,7 +400,8 @@ sub cmd_scrub {
 	die "%Error: Please read the help messages very carefully before using scrub!";
     }
     ###$path = "." if !defined $path;  # make them type it
-    $s4->strong_revert (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0]);
+    $s4->strong_revert (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0],
+			verbose=>(!defined $opts{'--noverbose'}));
     check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
 }
 
@@ -533,16 +523,16 @@ are found during viewspec parsing, s4 ends with an error.
 
 3. Do a series of "svn switch" commands to build the working area.
 In normal svn, you cannot switch a directory unless it is already
-in the working copy, and checked in.  S4 works around this (see 
-SVN::S4::ViewSpec.pm if you must know), so the viewspec can put any 
+in the working copy, and checked in.  S4 works around this (see
+SVN::S4::ViewSpec.pm if you must know), so the viewspec can put any
 directory at any location.
 
 =head2 fixprop
 
-Processes all files and directories passed as arguments.  Any .cvsignore
-files will be read and set their directory's svn:ignore property.  Any file
-which contains a CVS metacomment, and which do not have a svn:keyword
-property will have the svn:keyword property added.
+Processes all files and directories passed as arguments.  Any .cvsignore or
+.gitignore files will be read and set their directory's svn:ignore
+property.  Any file which contains a CVS metacomment, and which do not have
+a svn:keyword property will have the svn:keyword property added.
 
 With -N or --non-recursive, don't recurse across directories.
 
@@ -589,7 +579,7 @@ You probably ask, why not just do "svn revert -R" or "svn update -r".
 Those commands tend to leave some junk behind, or sometimes they get jammed
 (e.g. object of the same name already exists).  Also svn is understandably
 very conservative about erasing a file or directory that it is not SURE is
-checked in already.  But this command is not; it's happy to blow away the 
+checked in already.  But this command is not; it's happy to blow away the
 changes in your working copy...in fact that's its primary job.
 
 =head2 snapshot
@@ -663,7 +653,7 @@ Displays this message and program version and exits.
 
 =over 4
 
-=item .cvsignore
+=item .cvsignore, .gitignore
 
 Used by the fixprop command to specify the contents for the svn:ignore property.
 

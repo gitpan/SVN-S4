@@ -1,4 +1,3 @@
-# $Id: Update.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -27,7 +26,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 our $Info = 1;
 
 
@@ -74,7 +73,7 @@ sub update {
 
     # Make final decision about what revision to update to.  This will be used
     # for all viewspec operations, so that you get a coherent rev number.
-    # (Exception: if s4 has to make a new void directory and it doesn't get 
+    # (Exception: if s4 has to make a new void directory and it doesn't get
     # switched, e.g. path1/path2/path3 where only path3 is switched, then
     # path1 and path2 may have revision numbers that are higher than $rev.)
     my $rev = $params{revision};
@@ -124,7 +123,7 @@ sub checkout {
 		  #fallback_cmd=>,
                   @_);
     if (!$params{fallback_cmd}) {  # used when called from within S4.
-	die "%Error: s4 checkout needs url,path,revision" 
+	die "%Error: s4 checkout needs url,path,revision"
 	   unless defined $params{url} && defined $params{path} && defined $params{revision};
 	my @cmd = ($self->{svn_binary}, 'checkout', $params{url}, $params{path});
 	push @cmd, ('--revision', $params{revision});
@@ -141,7 +140,7 @@ sub checkout {
 
     # Make final decision about what revision to update to.  This will be used
     # for all viewspec operations, so that you get a coherent rev number.
-    # (Exception: if s4 has to make a new void directory and it doesn't get 
+    # (Exception: if s4 has to make a new void directory and it doesn't get
     # switched, e.g. path1/path2/path3 where only path3 is switched, then
     # path1 and path2 may have revision numbers that are higher than $rev.)
     my $rev = $params{revision};
@@ -163,7 +162,7 @@ sub checkout {
     my $viewspec = "$params{path}/$self->{viewspec_file}";
     $found_viewspec = (-d $params{path} && -f $viewspec);
     if (!$found_viewspec) {
-	# I can only imagine this happening if checkout was interrupted, or somebody 
+	# I can only imagine this happening if checkout was interrupted, or somebody
 	# deleted the viewspec from the repo in the last few seconds.
 	die "%Error: viewspec was in repo at $viewspec_url, but I could not find it in your checkout!";
     }
@@ -198,7 +197,7 @@ Scripts:
 
 =head1 DESCRIPTION
 
-SVN::S4::Update 
+SVN::S4::Update
 
 =head1 METHODS
 

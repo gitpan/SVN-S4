@@ -1,4 +1,3 @@
-# $Id: Getopt.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Wilson Snyder <wsnyder@wsnyder.org>
 ######################################################################
 #
@@ -26,7 +25,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 
 our %_Aliases =
     (

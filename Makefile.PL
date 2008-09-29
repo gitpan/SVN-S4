@@ -1,4 +1,3 @@
-# $Id: Makefile.PL 49466 2008-01-10 19:56:49Z wsnyder $
 # DESCRIPTION: Perl ExtUtils: Type 'perl Makefile.PL' to create a Makefile for this package
 #
 # Copyright 2006-2008 by Wilson Snyder.  This program is free software;
@@ -22,18 +21,17 @@ dist: maintainer-copy distcheck README
 
 ## Maintainer use:
 preexist:
-	test ! -r \$(HOME)/src/kits/\$(DISTVNAME).tar.gz
+	svnorcvs nexists \$(DISTNAME)_\$(VERSION_SYM)
 	test -s README
 
 tag:
 	svnorcvs tag  \$(DISTNAME)_\$(VERSION_SYM)
 
 maintainer-diff:
-	svnorcvs diff \$(DISTNAME)_\$(VERSION_SYM) 
+	svnorcvs diff \$(DISTNAME)_\$(VERSION_SYM)
 
 maintainer-dist: preexist dist tag
-	cp \$(DISTVNAME).tar.gz \$(HOME)/src/kits
-	mv \$(DISTVNAME).tar.gz \$(HOME)/backpack
+	svnorcvs release \$(DISTVNAME).tar.gz
 
 maintainer-copy:
 
@@ -44,7 +42,15 @@ maintainer-clean: distclean
 
 {
     local $! = undef;
-    my $ver = `svn --version`; ($?==0) or die "\n%Error: 'svn' must be installed to be useful\n";
+    my $ver = `svn --version`;
+    if ($? || !$ver) {
+	warn "\n%Error: 'svn' must be installed to be useful\n";
+	if ($ENV{AUTOMATED_TESTING}) {
+	    exit(0);
+	} else {
+	    die "%Error: Exiting due to above missing dependencies.\n";
+	}
+    }
     $ver =~ s/\n.*$//omg;
     print "Installed subversion: $ver\n";
 }
@@ -65,7 +71,7 @@ WriteMakefile(
 	      EXE_FILES	=> [qw( s4 )],
 	      'clean'	=> {FILES => qw(test_store test_dir), },
 	      'dist'	=> {COMPRESS => 'gzip -9f',
-			    SUFFIX   => '.gz', 
+			    SUFFIX   => '.gz',
 			    DIST_DEFAULT => 'README all tardist',
 			},
 	      );

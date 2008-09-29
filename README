@@ -20,10 +20,10 @@ entirely at your own risk.
 ===============
 
 This package adds additional Subversion support commands, similar to
-the P4::C4 package.  These commands let you apply .cvsignore files,
-snapshot areas and cleanup ignored files. You can also create views
-that consist of different repository areas, and deal with them as if it
-was a larger checkout.
+the P4::C4 package.  These commands let you apply .cvsignore or
+.gitignore files, snapshot areas and cleanup ignored files. You can
+also create views that consist of different repository areas, and deal
+with them as if it was a larger checkout.
 
 1.3 Obtaining Distribution
 ==========================

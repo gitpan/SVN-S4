@@ -14,7 +14,7 @@ which exposed some new bugs.
   instead.
 
 
-- Should I make any attempt to make unviewed directories complete evaporate?  
+- Should I make any attempt to make unviewed directories complete evaporate?
   I think not.  If they are unviewed, it is perfectly adequate to put a
   switchpoint to void there.  And with the anti-flipflop behavior, that means
   we won't spend any time checking out the contents.
@@ -25,7 +25,7 @@ Files in some directories never get checked out.  If the view contains a directo
 and there is a switchpoint VA/VB underneath it, the files in the directory VA are never
 checked out!
 
-But I need to teach it how to not run so many little svn commands 
+But I need to teach it how to not run so many little svn commands
 that it takes forever.
 
 Q: If user makes a switchpoint in addition to the ones that s4 makes, should
@@ -33,8 +33,8 @@ I take care to always leave it alone?  Presently, no, the recurse functions
 makes the switches match the viewspec, whether or not it should.
 
 I am interested in making a tree-shaped data structure instead of a list.
-This will help me to figure out if I can do an update at the top, or 
-a bunch of separate nonrecursive ones.  But I need to checkin before 
+This will help me to figure out if I can do an update at the top, or
+a bunch of separate nonrecursive ones.  But I need to checkin before
 embarking on that project.
 
 Most s4 tests are passing, except for these.
@@ -93,7 +93,7 @@ To do:
   To fix this, make s4 pass all the %opts into S4::update().
   Make S4::update create the raw svn command based on reading %opts.
   Then in S4::update it never needs to call main::cmd_svn().
-  But with %opts the way it is, I can't do that.  %opts does not tell you 
+  But with %opts the way it is, I can't do that.  %opts does not tell you
   the order that things appeared on the command line.  In some commands like
   svn copy SRC DST, the order of opts is critical.
 - s4 scrub blows away switches, even the ones created by s4 checkout.
@@ -117,7 +117,7 @@ To do:
   - Checkout algorithm is...?
     - parse viewspec
     - start at the top
-    - if any switchpoints below this directory, then 
+    - if any switchpoints below this directory, then
       - svn up -N directory
       - svn ls to find list of directories
       - for each one, recurse.
@@ -126,7 +126,7 @@ To do:
 - svn revert that changes Project.viewspec. Should we parse it?
 - some stuff in Viewspec.pm should really by in S4::ViewSpec package, not main S4 package.
 - Figure out the correct rules for when we can do a normal update, versus a
-  multipart viewspec update.  E.g. 
+  multipart viewspec update.  E.g.
   - if viewspec file does not exist in directory, normal update
   - if after the update -N, the viewspec has disappeared, do what?? Presently: normal update
   - if viewspec is same as last time we did checkout/update, and the target rev
@@ -142,7 +142,7 @@ To do:
 - in viewspec file, remove "date" keyword, act the same as "rev"
 - cosmetic: s4 help add prints "=head2 add"
 - protect against error cases in viewspecs files
-  - (DONE) bad url 
+  - (DONE) bad url
   - (DONE) bad command
   - target directory with absolute path!?
   - include of nonexistent file or URL
@@ -157,7 +157,7 @@ To do:
 - (OH WELL) SVN::S4::is_file_in_repo uses system instead of SVN::Client because I could not make
   the error message disappear.
 - (DONE) use rsvn everywhere, work around the problems (e.g. file not appearing for 7 seconds)
-  - (DONE) remove stupid hack 
+  - (DONE) remove stupid hack
     if ($s4->{svn_binary} eq 'rsvn') { push @local_svn, "--local"; }
     checkout of area with viewspec is a test case
 - (DONE) move guts of checkout/update into module
@@ -170,7 +170,7 @@ To do:
 - (DONE) remove any s4 dependency on SCX environment variables
 - (DONE) BUG mys4 checkout URL PATH is broken.
 - (DONE) change file_url back
-- (DONE) how to support -rREV.  I thought 
+- (DONE) how to support -rREV.  I thought
   Getopt::Long::config("bundling_override")
   would do it, but it doesn't.
   Example: s4 up -r26784        #FAILS
@@ -187,7 +187,7 @@ To do:
   - solution:
     - (DONE) add a check to S4::rev_on_date.
     - (DONE) make which_rev only get called in viewspec mode
-- (DONE) BUG: 
+- (DONE) BUG:
   "s4 up -rREV" fails
   "s4 up -r REV" is okay
 - (FIXED) BUG ./update_tests.py 22 fails  (but passes without s4 wrapper)
@@ -222,7 +222,7 @@ To do:
   So dammit I'm going to edit the .svn/entries file myself.  It's actually much easier
   than the switch relocate trick anyway.
     Make a versioned directory called A.
-    Just add the line: 
+    Just add the line:
        <entry name="A" kind="dir"/>
     and then you can svn switch A to anything you want.
     If you don't switch it, the next update will make A get deleted.
@@ -235,7 +235,7 @@ To do:
   "s4 commit file -m message" ok
 - (DONE) when view line gives bad URL, very confusing errors result.
   Just before doing svn switch, take the time to check if it's in the repository.
-- (DONE) BUG: Undoing switchpoints does the wrong thing if there are switchpoints underneath other 
+- (DONE) BUG: Undoing switchpoints does the wrong thing if there are switchpoints underneath other
   switchpoints.
   mys4 up -r11; mys4 up -r12
   cd /local/denney/svn114branch/subversion/tests/clients/cmdline/working_copies/s4_tests-7.wc2
@@ -274,8 +274,8 @@ To decide:
       Project.viewspec
   branches
     1.1.1
-  
-  
+
+
 - s4 update simh_2006-07-01 would ideally update that directory with knowledge
   of what the viewspec says.  But in our current model, since you did not update
   from the top, the viewspec would never be considered.  That seems bad.
@@ -304,7 +304,7 @@ To decide:
 Testing s4:
 - how to build test environment:
   wget http://subversion.tigris.org/tarballs/subversion-1.1.4.tar.gz
-  svn co svn+ssh://svn.sicortex.com/svn/master/software/devel/subversion/branches/denney_s4_tests 
+  svn co svn+ssh://svn.sicortex.com/svn/master/software/devel/subversion/branches/denney_s4_tests
   cd denney_s4_tests
   ./configure LDFLAGS=-L/usr/lib64
   make
@@ -327,7 +327,7 @@ Testing s4:
     specific order that the subcommand and the switches must appear in. For
     example, all of the following are valid ways to use svn status:
     $ svn -v status
-    $ svn status -v 
+    $ svn status -v
     $ svn status -v myfile
 
 - test with svn 1.2.3. on suse10

@@ -1,4 +1,3 @@
-# $Id: Info.pm 51887 2008-03-10 13:46:15Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -26,7 +25,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 
 #######################################################################
 # Methods
@@ -113,7 +112,7 @@ Scripts:
 
 =head1 DESCRIPTION
 
-SVN::S4::Info 
+SVN::S4::Info
 
 =head1 METHODS
 

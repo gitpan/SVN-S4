@@ -1,4 +1,3 @@
-# $Id: Snapshot.pm 51888 2008-03-10 13:49:46Z wsnyder $
 # Author: Bryce Denney <bryce.denney@sicortex.com>
 ######################################################################
 #
@@ -43,7 +42,7 @@
 #   More efficient to update the directory, then apply a patch for the files.
 # - (DONE) If you do "svn up -r25269 beh/file1 beh/file2 beh/file3", it locks every directory
 #   of the repository three times.  If you do "(cd beh;svn up -r25269 file{1,2,3})" it
-#   only locks beh three times.  Do everything at depth=1, then depth=2, then depth=3, 
+#   only locks beh three times.  Do everything at depth=1, then depth=2, then depth=3,
 #   etc.  In theory, everything at the same depth could be done in parallel!(?)
 # - (DONE) squash everything into one file. binary sections will be uuencoded.
 # - (DONE) command line switch to the patch script that controls whether it does reverts or not.
@@ -64,7 +63,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 our $Info = 1;
 
 
@@ -139,7 +138,7 @@ sub snapshot_main {
                   #disregard_ignore_list=>,
 		  #scrub_cmd=>,
                   @_);
-    die "%Error: parameter disregard_ignore_list is undefined"  
+    die "%Error: parameter disregard_ignore_list is undefined"
         if !defined $params{disregard_ignore_list};
     my $url = $self->file_url (filename=>$params{path});
     # find base revision
@@ -185,7 +184,7 @@ sub snapshot_main {
 	    print STDERR "Restore properties for $relpath\n" if $self->debug;
 	    $svn_prop_changes .= restore_proplist ($self,$relpath,$fullpath);
 	}
-	# look for text differences 
+	# look for text differences
 	if ($ts eq 'normal') {
 	    # no diff needed
 	} elsif ($ts eq 'unversioned' || $ts eq 'ignored') {
@@ -206,7 +205,7 @@ sub snapshot_main {
 	    } elsif (-f $relpath && -z $relpath) {
 		$shellcmds .= "/usr/bin/touch '$relpath'\n";
 	    } else {
-		# Make a diff that shows a file being created.  Try text diff first, and 
+		# Make a diff that shows a file being created.  Try text diff first, and
 		# if it fails, encode the whole file and put it inline.
 		$self->run("echo >> '$patch_path'");
 		my $code = $self->run_nocheck("diff -c /dev/null '$relpath' >> '$patch_path'");
@@ -264,14 +263,12 @@ sub snapshot_main {
 
     our %Dividers = (
 	1 => gen_section_divider(1),
-	2 => gen_section_divider(2), 
+	2 => gen_section_divider(2),
 	3 => gen_section_divider(3)
     );
-    my $rev = '$Id: Snapshot.pm 51888 2008-03-10 13:49:46Z wsnyder $';
-    $rev =~ s/^\$ I d:\s*\S+\s*([0-9]+).*$/$1/x or die "failed to parse id string: $rev";
 
     print STDOUT qq{#!/bin/bash -x
-# This file is a s4 snapshot file, created by SVN::S4::Snapshot.pm rev $rev,
+# This file is a s4 snapshot file, created by SVN::S4::Snapshot.pm $VERSION,
 # that describes how to recreate a subversion working area.  If you run this
 # script in the directory FOO with the --revert option, it will change FOO into
 # a working area that exactly matches the directory that was snapshotted.  Of
@@ -309,7 +306,7 @@ fi
 	my $quiet = $self->{quiet} ? "--quiet" : "";
 	if ($extern) {
 	    print STDOUT "# directory '$dirpath' is an extern\n";
-	    print STDOUT "svn checkout $quiet --revision $dir->{rev} '$this_url' '$dirpath'\n"; 
+	    print STDOUT "svn checkout $quiet --revision $dir->{rev} '$this_url' '$dirpath'\n";
 	} elsif ($parent) {
 	    # if this dir has a different rev than its parent, or if its url
 	    # is not what one would expect (svn switch), generate a command
@@ -319,19 +316,19 @@ fi
 	    $dirpath_last_elem =~ s/.*\///;
 	    my $match_url = "$parent_url/$dirpath_last_elem";
 	    # handle spaces. but some other characters will surely screw us up.
-	    $match_url =~ s/ /%20/g;  
+	    $match_url =~ s/ /%20/g;
 	    my $switched = $this_url ne $match_url;
-	    my $revchange = nonzero($parent->{rev}) 
+	    my $revchange = nonzero($parent->{rev})
 		&& nonzero($dir->{rev})
 		&& ($parent->{rev} != $dir->{rev});
 	    if ($switched) {
 		print STDERR "this_url=$this_url, expected $parent_url/$dirpath_last_elem\n" if $self->debug;
 		print STDOUT "# directory '$dirpath' url differs from parent\n";
-		print STDOUT "(cd '$dirpath' && \$S4 switch $quiet --revision $dir->{rev} '$this_url')\n"; 
+		print STDOUT "(cd '$dirpath' && \$S4 switch $quiet --revision $dir->{rev} '$this_url')\n";
 	    } elsif ($revchange) {
 		print STDERR "urls match. thisrev=$dir->{rev}, parent rev=$parent->{rev}\n" if $self->debug;
 		print STDOUT "# directory '$dirpath' revision differs from parent\n";
-		print STDOUT "(cd '$dirpath' && \$S4 up $quiet --revision $dir->{rev})\n"; 
+		print STDOUT "(cd '$dirpath' && \$S4 up $quiet --revision $dir->{rev})\n";
 	    }
 	}
 	# find files in this directory whose rev differs from the directory
@@ -339,7 +336,7 @@ fi
 	    #print STDOUT "# file '$file->{filename}' is rev $file->{rev}\n";
 	    if ($file->{rev} != 0 && $dir->{rev} != 0
 		&& ($file->{rev} != $dir->{rev})) {
-		print STDOUT "(cd '$dirpath' && \$S4 up $quiet --revision $file->{rev} '$file->{filename}')\n"; 
+		print STDOUT "(cd '$dirpath' && \$S4 up $quiet --revision $file->{rev} '$file->{filename}')\n";
 	    }
 	}
     }
@@ -559,13 +556,6 @@ sub get_svn_url {
     return $url;
 }
 
-sub usage {
-    print '$Id: Snapshot.pm 51888 2008-03-10 13:49:46Z wsnyder $ ', "\n";
-    $SIG{__WARN__} = sub{};     #pod2text isn't clean.
-    pod2text($0);
-    exit 1;
-}
-
 sub add_dir {
     my ($path, $rev, $obj) = @_;
     $path =~ s/\/+$//;  # remove trailing slashes, if any
@@ -703,7 +693,7 @@ Scripts:
 
 =head1 DESCRIPTION
 
-SVN::S4::Snapshot 
+SVN::S4::Snapshot
 
 =head1 METHODS
 

@@ -2,6 +2,7 @@
 bryce-notes.txt
 Changes
 lib/SVN/S4.pm
+lib/SVN/S4/CatOrMods.pm
 lib/SVN/S4/FixProp.pm
 lib/SVN/S4/Getopt.pm
 lib/SVN/S4/Info.pm
@@ -31,6 +32,7 @@ t/50_makerepo.t
 t/80_s4.t
 t/85_s4_help.t
 t/86_s4_fixprop.t
+t/87_s4_cat_or_mods.t
 t/test_utils.pl
 test_bryce_s4_with_svn114
 test_this_s4.template

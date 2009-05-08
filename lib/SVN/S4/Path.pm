@@ -1,15 +1,4 @@
-# Author: Wilson Snyder <wsnyder@wsnyder.org>
-######################################################################
-#
-# Copyright 2002-2008 by Wilson Snyder.  This program is free software;
-# you can redistribute it and/or modify it under the terms of either the GNU
-# General Public License or the Perl Artistic License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
+# See copyright, etc in below POD section.
 ######################################################################
 
 package SVN::S4::Path;
@@ -18,7 +7,7 @@ use File::Spec;
 use File::Spec::Functions;
 use strict;
 
-our $VERSION = '1.031';
+our $VERSION = '1.032';
 
 ######################################################################
 
@@ -128,9 +117,9 @@ Return contents of the file as a string, or undef if does not exist.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2002-2008 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2009 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
-Lesser General Public License or the Perl Artistic License.
+Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 =head1 AUTHORS
 

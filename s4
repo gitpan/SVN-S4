@@ -26,7 +26,7 @@ use vars qw ($Debug $VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.031';
+$VERSION = '1.032';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -107,6 +107,8 @@ if ($Opt_Cmd eq "help-summary") {
     cmd_help();
 } elsif ($Opt_Cmd eq "add") {
     cmd_add();
+} elsif ($Opt_Cmd eq "cat-or-mods") {
+    cmd_cat_or_mods();
 } elsif ($Opt_Cmd eq "checkout") {
     cmd_checkout();
 } elsif ($Opt_Cmd eq "fixprop") {
@@ -216,6 +218,16 @@ sub cmd_add {
 			  recurse=>!$opts{"--non-recursive"},
 			  personal=>$opts{"--personal"});
 	}
+    }
+}
+
+sub cmd_cat_or_mods {
+    print "cmd_cat_or_mods ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    !$opts{unknown} or die "%Error: s4 cat-or-mods: Unknown argument: $opts{unknown}[0]\n";
+
+    $opts{path} or die "%Error: s4 cat-or-mods: File path is required\n";
+    foreach my $filename (@{$opts{path}}) {
+	$s4->cat_or_mods(filename=>$filename,);
     }
 }
 
@@ -507,6 +519,14 @@ files.
 
 With --raw, just run the normal svn add, do not fixprop.
 
+=head2 cat-or-mods
+
+Perform a "svn cat HEAD" if the file has no modifications, else show the
+local file with modifications.  This is a convient way of editing what
+would otherwise need to be a global file.  If the file is unchanged you'll
+get HEAD (basically a global file), but you can also edit it locally to
+make changes.
+
 =head2 checkout
 
 s4 checkout behaves exactly the same way as svn checkout, unless the top
@@ -674,9 +694,9 @@ newer versions will probably break.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2008 by Bryce Denney and Wilson Snyder.  This package is
+Copyright 2005-2009 by Bryce Denney and Wilson Snyder.  This package is
 free software; you can redistribute it and/or modify it under the terms of
-either the GNU Lesser General Public License or the Perl Artistic License.
+either the GNU Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 =head1 AUTHORS
 

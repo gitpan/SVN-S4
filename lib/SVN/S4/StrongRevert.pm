@@ -1,15 +1,4 @@
-# Author: Bryce Denney <bryce.denney@sicortex.com>
-######################################################################
-#
-# Copyright 2005-2008 by Bryce Denney.  This program is free software;
-# you can redistribute it and/or modify it under the terms of either the GNU
-# General Public License or the Perl Artistic License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
+# See copyright, etc in below POD section.
 ######################################################################
 #
 # Goal: Completely clean a svn source tree.
@@ -45,7 +34,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.031';
+our $VERSION = '1.032';
 our $Info = 1;
 
 
@@ -432,9 +421,9 @@ SVN::S4::StrongRevert
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2008 by Bryce Denney.  This package is free software; you
+Copyright 2005-2009 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
-Lesser General Public License or the Perl Artistic License.
+Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 =head1 AUTHORS
 

@@ -9,8 +9,21 @@ use strict;
 use Test;
 use Cwd;
 
-BEGIN { plan tests => 1 }
+BEGIN { plan tests => 4 }
 BEGIN { require "t/test_utils.pl"; }
 
-run_system("${PERL} s4 info");
+my $out;
+
+write_text("test_dir/trunk/87file", 'Orig');
+run_system("${PERL} s4 add test_dir/trunk/87file");
 ok(1);
+
+$out = `${PERL} s4 ci -m 87file test_dir/trunk/87file`;
+ok(1);
+
+$out = `${PERL} s4 cat-or-mods test_dir/trunk/87file`;
+ok($out,"Orig");
+
+write_text("test_dir/trunk/87file", 'Newer');
+$out = `${PERL} s4 cat-or-mods test_dir/trunk/87file`;
+ok($out,"Newer");

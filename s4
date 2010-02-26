@@ -26,7 +26,7 @@ use vars qw ($Debug $VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.032';
+$VERSION = '1.033';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -694,7 +694,7 @@ newer versions will probably break.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2009 by Bryce Denney and Wilson Snyder.  This package is
+Copyright 2005-2010 by Bryce Denney and Wilson Snyder.  This package is
 free software; you can redistribute it and/or modify it under the terms of
 either the GNU Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

@@ -34,7 +34,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.032';
+our $VERSION = '1.033';
 our $Info = 1;
 
 
@@ -421,7 +421,7 @@ SVN::S4::StrongRevert
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2009 by Bryce Denney.  This package is free software; you
+Copyright 2005-2010 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

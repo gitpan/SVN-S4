@@ -14,7 +14,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.032';
+our $VERSION = '1.033';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
@@ -199,7 +199,7 @@ keywords that need repair.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2009 by Wilson Snyder.  This package is free software; you
+Copyright 2005-2010 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

@@ -26,7 +26,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.032';
+our $VERSION = '1.033';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -605,7 +605,7 @@ Create a new SVN::S4 object.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2002-2009 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2010 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

@@ -3,9 +3,10 @@
 ######################################################################
 
 require 5.006_001;
-use lib "lib";
-use lib "blib/lib";
-use lib "blib/arch";
+use FindBin qw($RealBin);
+use lib "$RealBin/blib/arch";
+use lib "$RealBin/blib/lib";
+use lib "$RealBin";
 
 use Getopt::Long;
 use IO::File;
@@ -26,7 +27,7 @@ use vars qw ($Debug $VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.033';
+$VERSION = '1.034';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -676,6 +677,16 @@ Displays this message and program version and exits.
 =item .cvsignore, .gitignore
 
 Used by the fixprop command to specify the contents for the svn:ignore property.
+
+=back
+
+=head1 ENVIRONMENT
+
+=over 4
+
+=item S4_SVN
+
+Name of svn executable, or "svn" if not specified.
 
 =back
 

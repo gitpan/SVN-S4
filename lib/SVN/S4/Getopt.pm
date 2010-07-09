@@ -13,13 +13,14 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.033';
+our $VERSION = '1.034';
 
 our %_Aliases =
     (
      'ann'	=> 'blame',
      'annotate'	=> 'blame',
      'ci'	=> 'commit',
+     'cl'	=> 'changelist',
      'co'	=> 'checkout',
      'cp'	=> 'copy',
      'del'	=> 'delete',
@@ -45,6 +46,7 @@ our %_Aliases =
      'snap'	=> 'snapshot',
      'st'	=> 'status',
      'stat'	=> 'status',
+     'sw'	=> 'switch',
      'up'	=> 'update',
      # S4 additions
      'qci'	=> 'quick-commit',
@@ -64,390 +66,627 @@ our %_Args =
  (
   'add'		=> {
       s4_changed => 1,
-      args => (' [--targets FILENAME]'
+      args => (''
+	       .' [--svn]'			# S4 addition
+	       #
+	       .' [--auto-props]'
+	       .' [--depth ARG]'		# 1.6
+	       .' [--force]'
+	       .' [--no-auto-props]'
+	       .' [--parents]'			# 1.6
+	       .' [--targets FILENAME]'
 	       .' [-N|--non-recursive]'
 	       .' [-q|--quiet]'
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [--auto-props]'
-	       .' [--no-auto-props]'
-	       .' [--force]'
-	       .' [--svn]'			# S4 addition
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATH...')},
   'blame'	=> {
-      args => (' [-r|--revision REV]'
+      args => (''
+	       .' [--force]'			# 1.4
+	       .' [--incremental]'		# 1.6
+	       .' [--xml]'			# 1.6
+	       .' [-g|--use-merge-history]'	# 1.6
+	       .' [-r|--revision REV]'
+	       .' [-v|--verbose]'
+	       .' [-x|--extensions ARGS]'	# 1.4
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [--verbose]'
-	       .' [--force]'			# 1.4
-	       .' [-x|--extensions ARGS]'	# 1.4
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATH...')},	# PATH[@REV]
   'cat'		=> {
-      args => (' [-r|--revision REV]'
+      args => (''
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
+	       .' PATH...')},	# PATH[@REV]
+  'changelist'	=> {
+      args => (''
+	       .' [--changelist ARG'		# 1.6
+	       .' [--depth ARG]'		# 1.6
+	       .' [--remove]'			# 1.6
+	       .' [--targets ARG]'		# 1.6
+	       .' [-R|--recursive]'		# 1.6
+	       .' [-q|--quiet]'			# 1.6
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
+	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATH...')},	# PATH[@REV]
   'checkout'	=> {
       s4_changed => 1,
-      args => (' [-r|--revision REV]'
-	       .' [-q|--quiet]'
+      args => (''
+	       .' [--depth ARG]'
+	       .' [--force]'
+	       .' [--ignore-externals]'
 	       .' [-N|--non-recursive]'
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--ignore-externals]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' URL... [PATH]')},  # URL[@REV]  path will parse to be last element in {url}
   'cleanup'	=> {
-      args => (' [--diff3-cmd CMD]'
+      args => (''
+	       .' [--diff3-cmd CMD]'
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH...]')},
   'commit'	=> {
-      args => (' [-m|--message TEXT]'
-	       .' [-F|--file FILE]'
-	       .' [-q|--quiet]'
-	       .' [--no-unlock]'
-	       .' [-N|--non-recursive]'
-	       .' [--targets FILENAME]'
+      args => (''
+	       .' [--changelist ARG]'		# 1.6
+	       .' [--depth ARG]'
+	       .' [--editor-cmd ARG]'		# 1.6
+	       .' [--encoding ENC]'
 	       .' [--force-log]'
+	       .' [--keep-changelist ARG]'	# 1.6
+	       .' [--no-unlock]'
+	       .' [--non-interactive]'
+	       .' [--targets FILENAME]'
+	       .' [--with-revprop ARG]'		# 1.6
+	       .' [-F|--file FILE]'
+	       .' [-N|--non-recursive]'
+	       .' [-m|--message TEXT]'
+	       .' [-q|--quiet]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
-	       .' [--non-interactive]'
-	       .' [--encoding ENC]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH...]')},
   'copy'	=> {
-      args => (' [-m|--message TEXT]'
+      args => (''
+	       .' [--editor-cmd EDITOR]'
+	       .' [--encoding ENC]'
+	       .' [--force-log]'
+	       .' [--ignore-externals]'		# 1.6
+	       .' [--parents]'
+	       .' [--with-revprop ARG]'		# 1.6
 	       .' [-F|--file FILE]'
-	       .' [-r|--revision REV]'
+	       .' [-m|--message TEXT]'
 	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--force-log]'
-	       .' [--editor-cmd EDITOR]'
-	       .' [--encoding ENC]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' SRC DST')},
   'delete'	=> {
-      args => (' [--force]'
+      args => (''
+	       .' [--editor-cmd EDITOR]'
+	       .' [--encoding ENC]'
 	       .' [--force-log]'
-	       .' [-m|--message TEXT]'
-	       .' [-F|--file FILE]'
-	       .' [-q|--quiet]'
+	       .' [--force]'
+	       .' [--keep-local]'		# 1.6
 	       .' [--targets FILENAME]'
+	       .' [--with-revprop ARG]'		# 1.6
+	       .' [-F|--file FILE]'
+	       .' [-m|--message TEXT]'
+	       .' [-q|--quiet]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--editor-cmd EDITOR]'
-	       .' [--encoding ENC]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATHORURL...')},
   'diff'	=> {
-      args => (# 'diff [-r N[:M]]       [PATH[@REV]...]'
+      args => (''# 'diff [-r N[:M]]       [PATH[@REV]...]'
 	       # 'diff [-r N[:M]] --old OLD-TGT[@OLDREV] [--new NEW-TGT[@NEWREV]] [PATH...]'
 	       # 'diff                  OLD-URL[@OLDREV]        NEW-URL[@NEWREV]'
-	       ' [-r|--revision REVS]'	#OLDREV[:NEWREV]
-	       .' [--old OLDPATH]'		#PATH[@REV]
-	       .' [--new NEWPATH]'		#PATH[@REV]
-	       .' [-x|--extensions ARGS]'
-	       .' [-N|--non-recursive]'
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
+	       .' [--diff-b|-b]'	# 1.4
 	       .' [--diff-cmd CMD]'
+	       .' [--diff-u|-u]'	# 1.4
+	       .' [--diff-w|-w]'	# 1.4
+	       .' [--force]'		# 1.6
+	       .' [--ignore-eol-style]'	# 1.4
+	       .' [--new NEWPATH]'		#PATH[@REV]
+	       .' [--no-diff-deleted]'
 	       .' [--notice-ancestry]'
+	       .' [--old OLDPATH]'		#PATH[@REV]
+	       .' [--summarize]'	# 1.4
+	       .' [--xml]'		# 1.6
+	       .' [-N|--non-recursive]'
+	       .' [-c|--change REV]'	# 1.4
+	       .' [-r|--revision REVS]'	#OLDREV[:NEWREV]
+	       .' [-x|--extensions ARGS]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--no-diff-deleted]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [-c|--change REV]'	# 1.4
-	       .' [--summarize]'	# 1.4
-	       .' [--diff-u|-u]'	# 1.4
-	       .' [--diff-b|-b]'	# 1.4
-	       .' [--diff-w|-w]'	# 1.4
-	       .' [--ignore-eol-style]'	# 1.4
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATHORURL...]')},
   'export'	=> {
-      args => (' [-r|--revision REV]'
-	       .' [-q|--quiet]'
+      args => (''
+	       .' [--depth ARG]'		# 1.6
 	       .' [--force]'
+	       .' [--ignore-externals]'		# 1.4
+	       .' [--native-eol ARG]'
+	       .' [--non-recursive]'
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--non-recursive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [--native-eol EOL]'
-	       .' [--ignore-externals]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATHORURL [PATH]')},  # [@PEGREV]
   'help'	=> {
-      args => (' [--version]'
+      args => (''
+	       .' [--version]'
 	       .' [-q|--quiet]'
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [SUBCOMMAND...]')},
   'import'	=> {
-      args => (' [-m|--message TEXT]'
-	       .' [-F|--file FILE]'
-	       .' [-q|--quiet]'
-	       .' [-N|--non-recursive]'
-	       .' [--username USER]'
-	       .' [--password PASS]'
-	       .' [--no-auth-cache]'
-	       .' [--non-interactive]'
-	       .' [--force-log]'
+      args => (''
+	       .' [--auto-props]'
+	       .' [--depth ARG]'		# 1.6
 	       .' [--editor-cmd EDITOR]'
 	       .' [--encoding ENC]'
-	       .' [--config-dir DIR]'
-	       .' [--auto-props]'
-	       .' [--no-auto-props]'
+	       .' [--force]'
+	       .' [--force-log]'
 	       .' [--ignore-externals]'
+	       .' [--no-auto-props]'
+	       .' [--no-ignore]'		# 1.6
+	       .' [--with-revprop ARG]'		# 1.6
+	       .' [-F|--file FILE]'
+	       .' [-N|--non-recursive]'
+	       .' [-m|--message TEXT]'
+	       .' [-q|--quiet]'
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
+	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH] URL')},
   'info'	=> {
-      args => (' [-r|--revision]'
-	       .' [-R|--recursive]'
-	       .' [--targets FILENAME]'
+      args => (''
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
 	       .' [--incremental]'
+	       .' [--targets FILENAME]'
 	       .' [--xml]'
+	       .' [-R|--recursive]'
+	       .' [-r|--revision]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH...]')},
   'list'	=> {
-      args => (' [-r|--revision REV]'
-	       .' [-v|--verbose]'
-	       .' [-R|--recursive]'
+      args => (''
+	       .' [--depth ARG]'		# 1.6
 	       .' [--incremental]'
 	       .' [--xml]'
+	       .' [-R|--recursive]'
+	       .' [-r|--revision REV]'
+	       .' [-v|--verbose]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH...]')},		# PATH[@REV]...
   'lock'	=> {
-      args => (' [--targets FILENAME]'
-	       .' [-m|--message TEXT]'
-	       .' [-F|--file FILE]'
-	       .' [--force-log]'
+      args => (''
 	       .' [--encoding ENC]'
+	       .' [--force-log]'
+	       .' [--targets FILENAME]'
+	       .' [-F|--file FILE]'
+	       .' [-m|--message TEXT]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [--force]'
 	       .' PATH...')},
   'log'		=> {
-      args => (' [-r|--revision REV]'
-	       .' [-q|--quiet]'
-	       .' [-v|--verbose]'
-	       .' [--targets FILENAME]'
-	       .' [--stop-on-copy]'
+      args => (''
 	       .' [--incremental]'
 	       .' [--limit NUM]'
+	       .' [--stop-on-copy]'
+	       .' [--with-all-revprops]'	# 1.6
+	       .' [--with-no-revprops]'		# 1.6
+	       .' [--with-revprop ARG]'		# 1.6
+	       .' [--targets FILENAME]'
 	       .' [--xml]'
+	       .' [-c|--change ARG]'		# 1.6
+	       .' [-g|--use-merge-history]'
+	       .' [-l|--limit ARG]'		# 1.6
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       .' [-v|--verbose]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATHORURL [PATH...]')},
   'merge'	=> {
-      args => (#'merge        PATHORURL1[@N]  PATHORURL2[@M]  [WCPATH]'
+      args => (''#'merge        PATHORURL1[@N]  PATHORURL2[@M]  [WCPATH]'
 	       #'merge -r N:M SOURCE[@REV]                    [WCPATH]'
-	       ' [-r|--revision REV]'
-	       .' [-N|--non-recursive]'
-	       .' [-q|--quiet]'
-	       .' [--force]'
-	       .' [--dry-run]'
+	       .' [--accept ARG]'		# 1.6
+	       .' [--depth ARG]'		# 1.6
 	       .' [--diff3-cmd CMD]'
+	       .' [--dry-run]'
+	       .' [--force]'
 	       .' [--ignore-ancestry]'
+	       .' [--record-only]'		# 1.6
+	       .' [--reintegrate]'		# 1.6
+	       .' [-N|--non-recursive]'
+	       .' [-c|--change REV]'		# 1.4
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       .' [-x|--extensions ARGS]'	# 1.4
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [-x|--extensions ARGS]'	# 1.4
-	       .' [-c|--change REV]'		# 1.4
+	       .' [--config-option ARG]'	# 1.6
+	       .' PATHORURL...')},
+  'mergeinfo'	=> {
+      args => (''#mergeinfo SOURCE[@REV] [TARGET[@REV]]
+	       .' [--show-revs ARG]'		# 1.6
+	       .' [-r|--revision ARG]'		# 1.6
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
+	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATHORURL...')},
   'mkdir'	=> {
-      args => (' [-m|--message TEXT]'
+      args => (''
+	       .' [--editor-cmd EDITOR]'
+	       .' [--encoding ENC]'
+	       .' [--force-log]'
+	       .' [--parents]'			# 1.6
+	       .' [--with-revprop ARG]'		# 1.6
 	       .' [-F|--file FILE]'
+	       .' [-m|--message TEXT]'
 	       .' [-q|--quiet]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--editor-cmd EDITOR]'
-	       .' [--encoding ENC]'
-	       .' [--force-log]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATHORURL...')},
   'move'	=> {
-      args => (' [-m|--message TEXT]'
-	       .' [-F|--file FILE]'
-	       .' [-r|--revision REV]'
-	       .' [-q|--quiet]'
-	       .' [--force]'
-	       .' [--username USER]'
-	       .' [--password PASS]'
-	       .' [--no-auth-cache]'
-	       .' [--non-interactive]'
+      args => (''
 	       .' [--editor-cmd EDITOR]'
 	       .' [--encoding ENC]'
 	       .' [--force-log]'
+	       .' [--force]'
+	       .' [--parents]'			# 1.6
+	       .' [--with-revprop ARG]'		# 1.6
+	       .' [-F|--file FILE]'
+	       .' [-m|--message TEXT]'
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' SRC DST')},
   'propdel'	=> {
-      args => (#'propdel PROPNAME [PATH...]'
+      args => (''#'propdel PROPNAME [PATH...]'
 	       #'propdel PROPNAME --revprop -r REV [URL]'
-	       ' [-q|--quiet]'
-	       .' [-R|--recursive]'
-	       .' [-r|--revision REV]'
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
 	       .' [--revprop]'
+	       .' [-R|--recursive]'
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PROPNAME [PATHORURL...]')},
   'propedit'	=> {
-      args => (#'propedit PROPNAME PATH...'
+      args => (''#'propedit PROPNAME PATH...'
 	       #'propedit PROPNAME --revprop -r REV [URL]'
-	       ' [-r|--revision REV]'
+	       .' [--editor-cmd EDITOR]'
+	       .' [--encoding ENC]'
+	       .' [--force]'
+	       .' [--force-log]'
 	       .' [--revprop]'
+	       .' [--with-revprop ARG]'
+	       .' [-F|--file PATH]'
+	       .' [-m|--message ARG]'
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
-	       .' [--encoding ENC]'
-	       .' [--editor-cmd EDITOR]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PROPNAME [PATHORURL...]')},
   'propget'	=> {
-      args => (#'propget PROPNAME [PATH[@REV]...]'
+      args => (''#'propget PROPNAME [PATH[@REV]...]'
 	       #'propget PROPNAME --revprop -r REV [URL]'
-	       ' [-R|--recursive]'
-	       .' [-r|--revision REV]'
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
 	       .' [--revprop]'
 	       .' [--strict]'
+	       .' [--xml]'
+	       .' [-R|--recursive]'
+	       .' [-r|--revision REV]'
+	       .' [-v|--verbose]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PROPNAME [PATHORURL...]')},
   'proplist'	=> {
-      args => (#'proplist [PATH[@REV]...]'
+      args => (''#'proplist [PATH[@REV]...]'
 	       #'proplist -revprop -r REV [URL]'
-	       ' [-v|--verbose]'
-	       .' [-R|--recursive]'
-	       .' [-r|--revision REV]'
-	       .' [-q|--quiet]'
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
 	       .' [--revprop]'
+	       .' [--xml]'
+	       .' [-R|--recursive]'
+	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       .' [-v|--verbose]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PROPNAME [PATHORURL...]')},
   'propset'	=> {
-      args => (#'propset PROPNAME [PROPVAL | -F VALFILE] PATH...'
+      args => (''#'propset PROPNAME [PROPVAL | -F VALFILE] PATH...'
 	       #'propset PROPNAME --revprop -r REV [PROPVAL | -F VALFILE] [URL]'
-	       ' [-F|--file FILE]'
-	       .' [-q|--quiet]'
-	       .' [-r|--revision REV]'
-	       .' [--targets FILENAME]'
-	       .' [-R|--recursive]'
-	       .' [--revprop]'
-	       .' [--username USER]'
-	       .' [--password PASS]'
-	       .' [--no-auth-cache]'
-	       .' [--non-interactive]'
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
 	       .' [--encoding ENC]'
 	       .' [--force]'
-	       .' [--config-dir DIR]'
-	       .' PROPNAME [PATHORURL...]')},
-  'resolved'	=> {
-      args => (' [--targets FILENAME]'
+	       .' [--revprop]'
+	       .' [--targets FILENAME]'
+	       .' [-F|--file FILE]'
 	       .' [-R|--recursive]'
 	       .' [-q|--quiet]'
+	       .' [-r|--revision REV]'
+	       #
+	       .' [--username USER]'
+	       .' [--password PASS]'
+	       .' [--no-auth-cache]'
+	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
+	       .' PROPNAME [PATHORURL...]')},
+  'resolve'	=> {
+      args => (''
+	       .' [--accept ARG]'
+	       .' [--depth ARG]'
+	       .' [--targets FILENAME]'
+	       .' [-R|--recursive]'
+	       .' [-q|--quiet]'
+	       #
+	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
+	       .' PATH...')},
+  'resolved'	=> {
+      args => (''
+	       .' [--depth ARG]'		# 1.6
+	       .' [--targets FILENAME]'
+	       .' [-R|--recursive]'
+	       .' [-q|--quiet]'
+	       #
+	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATH...')},
   'revert'	=> {
-      args => (' [--targets FILENAME]'
+      args => (''
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
+	       .' [--targets FILENAME]'
 	       .' [-R|--recursive]'
 	       .' [-q|--quiet]'
+	       #
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATH...')},
   'status'	=> {
-      args => (' [-u|--show-updates]'
-	       .' [-v|--verbose]'
+      args => (''
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
+	       .' [--ignore-externals]'
+	       .' [--incremental]'
+	       .' [--no-ignore]'
+	       .' [--xml]'
 	       .' [-N|--non-recursive]'
 	       .' [-q|--quiet]'
-	       .' [--no-ignore]'
+	       .' [-u|--show-updates]'
+	       .' [-v|--verbose]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [--ignore-externals]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH...]')},
   'switch'	=> {
-      args => (#'switch URL [PATH]'
+      args => (''#'switch URL [PATH]'
 	       #'switch --relocate FROM TO [PATH...]'
-	       ' [-r|--revision REV]'
+	       .' [--accept ARG]'
+	       .' [--depth ARG]'
+	       .' [--diff3-cmd CMD]'
+	       .' [--force]'
+	       .' [--ignore-externals]'
+	       .' [--relocate]'   # technically [--relocate FROM TO] but parser below doesn't support
+	       .' [--set-depth ARG]'
 	       .' [-N|--non-recursive]'
 	       .' [-q|--quiet]'
-	       .' [--diff3-cmd CMD]'
-	       .' [--relocate]'   # technically [--relocate FROM TO] but parser below doesn't support
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' ARG...')},
   'unlock'	=> {
-      args => (' [--targets FILENAME]'
+      args => (''
+	       .' [--force]'
+	       .' [--targets FILENAME]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [--force]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' PATH...')},
   'update'	=> {
       s4_changed => 1,
-      args => (' [-r|--revision REV]'
+      args => (''
+	       .' [--accept ARG]'
+	       .' [--changelist ARG]'
+	       .' [--depth ARG]'		# 1.6
+	       .' [--diff3-cmd CMD]'
+	       .' [--editor-cmd EDITOR]'
+	       .' [--force]'
+	       .' [--ignore-externals]'
+	       .' [--set-depth ARG]'		# 1.6
 	       .' [-N|--non-recursive]'
 	       .' [-q|--quiet]'
-	       .' [--diff3-cmd CMD]'
+	       .' [-r|--revision REV]'
+	       #
 	       .' [--username USER]'
 	       .' [--password PASS]'
 	       .' [--no-auth-cache]'
 	       .' [--non-interactive]'
+	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
-	       .' [--ignore-externals]'
+	       .' [--config-option ARG]'	# 1.6
 	       .' [PATH...]')},
   #####
   # Commands added in S4
   'cat-or-mods' => {
       s4_addition => 1,
-      args => (' [PATH...]')},
+      args => (''
+	       .' [PATH...]')},
   'fixprop'	=> {
       s4_addition => 1,
-      args => (' [-q|--quiet]'
+      args => (''
+	       .' [-q|--quiet]'
 	       .' [-R|--recursive]'		# Ignored as is default
 	       .' [-N|--non-recursive]'
 	       .' [--dry-run]'
@@ -455,13 +694,16 @@ our %_Args =
 	       .' [PATH...]')},
   'help-summary' => {
       s4_addition => 1,
-      args => ('')},
+      args => (''
+	       .'')},
   'info-switches' => {
       s4_addition => 1,
-      args => (' [PATH...]')},
+      args => (''
+	       .' [PATH...]')},
   'quick-commit' => {
       s4_addition => 1,
-      args => (' [-m|--message TEXT]'
+      args => (''
+	       .' [-m|--message TEXT]'
 	       .' [-F|--file FILE]'
 	       .' [-q|--quiet]'
 	       .' [--dry-run]'
@@ -470,11 +712,13 @@ our %_Args =
 	       .' [PATH...]')},
   'snapshot' => {
       s4_addition => 1,
-      args => (' [--no-ignore]'
+      args => (''
+	       .' [--no-ignore]'
                .' PATH')},
   'scrub' => {
       s4_addition => 1,
-      args => (' [-r|--revision REV]'
+      args => (''
+	       .' [-r|--revision REV]'
                .' [--url URL]'
                .' [-v|--verbose]'
                . ' PATH')},

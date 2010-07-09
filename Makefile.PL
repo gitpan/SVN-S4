@@ -67,6 +67,7 @@ WriteMakefile(
 			    'IO::AIO' => 0,
 			    'Digest::MD5' => 0,
 			    'MIME::Base64' => 0,
+			    'Test::More' => 0,
 			},
 	      EXE_FILES	=> [qw( s4 )],
 	      'clean'	=> {FILES => qw(test_store test_dir), },

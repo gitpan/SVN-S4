@@ -14,7 +14,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.033';
+our $VERSION = '1.034';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (

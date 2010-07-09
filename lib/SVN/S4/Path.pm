@@ -7,7 +7,7 @@ use File::Spec;
 use File::Spec::Functions;
 use strict;
 
-our $VERSION = '1.033';
+our $VERSION = '1.034';
 
 ######################################################################
 

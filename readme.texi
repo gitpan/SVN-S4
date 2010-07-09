@@ -56,10 +56,11 @@ Download the latest package from that site, and decompress.
 @node Known Bugs, Supported Systems, Obtaining Distribution, Top
 @section Known Bugs
 
-SVN::S4 relys on some obscure features of Subversion, in that s4 needs
-to modify the .svn directory to create empty directories and svn
-externals that switch to them.  This has only been tested on
-Subversion 1.1 and 1.2, newer versions will probably require patching.
+SVN::S4 viewspecs rely on some obscure features of Subversion, in that
+s4 needs to modify the .svn directory to create empty directories and
+svn externals that switch to them.  This may require patching to work
+when new versions of Subversion are released.  Other features should
+work with all versions of Subverion.
 
 @node Supported Systems, Installation, Known Bugs, Top
 @section Supported Systems

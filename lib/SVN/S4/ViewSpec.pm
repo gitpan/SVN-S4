@@ -15,7 +15,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.033';
+our $VERSION = '1.034';
 our $Info = 1;
 
 
@@ -400,8 +400,8 @@ sub remove_switchpoint {
 	 # then what's the right answer?
          $self->run ("rm -rf $path/.svn");
          $self->run ("rmdir $path");
-	 print "s4: running svn update -r $self->{revision} on $abspath\n" if $self->debug;
-	 $self->run ("svn up -N --revision $self->{revision} $path");
+	 print "s4: running $self->{svn_binary} update -r $self->{revision} on $abspath\n" if $self->debug;
+	 $self->run ("$self->{svn_binary} up -N --revision $self->{revision} $path");
      } else {
          print "s4: Ignoring obsolete switchpoint $path because there are still files under it.\n";
          print "s4: If you remove those files, you can remove the switchpoint manually, by deleting\n";

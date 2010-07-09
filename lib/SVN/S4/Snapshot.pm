@@ -52,7 +52,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.033';
+our $VERSION = '1.034';
 our $Info = 1;
 
 
@@ -515,13 +515,13 @@ sub get_svn_rev {
     # I don't know how to do this with SVN::Client.
     # So do it the old fashioned way.
     my ($self,$path) = @_;
-    print STDERR "Exec: cd '$path' && svn info\n" if $self->debug;
-    open (INFO, "cd '$path' && svn info |");
+    print STDERR "Exec: cd '$path' && $self->{svn_binary} info\n" if $self->debug;
+    open (INFO, "cd '$path' && $self->{svn_binary} info |");
     my $rev;
     while (<INFO>) {
 	if (/^Revision: (\d+)/) {
 	    $rev = $1;
-	    last;
+	    #last;  # Causes broken pipe
 	}
     }
     close INFO;
@@ -532,13 +532,13 @@ sub get_svn_url {
     # I don't know how to do this with SVN::Client.
     # So do it the old fashioned way.
     my ($self,$path) = @_;
-    print STDERR "Exec: cd '$path' && svn info\n" if $self->debug;
+    print STDERR "Exec: cd '$path' && $self->{svn_binary} info\n" if $self->debug;
     open (INFO, "cd '$path' && $self->{svn_binary} info |");
     my $url;
     while (<INFO>) {
 	if (/^URL: (.*)/) {
 	    $url = $1;
-	    last;
+	    #last;  # Causes broken pipe
 	}
     }
     close INFO;

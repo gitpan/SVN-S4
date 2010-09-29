@@ -16,6 +16,10 @@ ok(1);
 
 foreach my $filename (keys %{$manifest}) {
     print "Space test of: $filename\n";
+    if ($filename eq "README") {
+	skip(1,"File doesn't need check; harmless");
+	next;
+    }
     my $wholefile = wholefile($filename);
     if ($wholefile && $wholefile !~ /[ \t]+\n/) {
 	ok(1);

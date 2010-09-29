@@ -52,7 +52,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 our $Info = 1;
 
 
@@ -127,16 +127,16 @@ sub snapshot_main {
                   #disregard_ignore_list=>,
 		  #scrub_cmd=>,
                   @_);
-    die "%Error: parameter disregard_ignore_list is undefined"
+    die "s4: Internal-%Error: parameter disregard_ignore_list is undefined"
         if !defined $params{disregard_ignore_list};
     my $url = $self->file_url (filename=>$params{path});
     # find base revision
     # this is an "our" variable so that the status callback function can use it
     our $baseRev = $self->get_svn_rev ($params{path});
-    die "%Error: could not find revision number of tree at $params{path}" if !defined $baseRev;
+    die "s4: %Error: could not find revision number of tree at $params{path}" if !defined $baseRev;
 
     my $canonical_path = $self->abs_filename($params{path});
-    chdir $canonical_path or die "%Error: chdir $canonical_path";
+    chdir $canonical_path or die "s4: %Error: chdir $canonical_path";
 
     $Snapshot_Statfunc_Debug = $self->debug || 0;
     $self->client->notify(\&notify_callback);
@@ -183,9 +183,9 @@ sub snapshot_main {
 		# non-empty, die and force user to svn add it.  Or we could read
 		# the dir and issue mkdirs and patches for all the contents.
 		my $num_contents = `find '$relpath' -print|wc -l`;
-		die "%Error: find on directory $relpath failed to return number of items inside" if $num_contents < 1;
+		die "s4: %Error: find on directory $relpath failed to return number of items inside" if $num_contents < 1;
 		if ($num_contents != 1) {
-		    die "%Error: the directory '$relpath' cannot be snapshotted. To fix this, svn add the directory and try again.";
+		    die "s4: %Error: the directory '$relpath' cannot be snapshotted. To fix this, svn add the directory and try again.";
 		}
 	    } elsif (-l $relpath) {
 		# symbolic link
@@ -247,7 +247,7 @@ sub snapshot_main {
     }
 
     if ($Snapshot_Errors) {
-	die "%Error: stopping due to above errors";
+	die "s4: %Error: stopping due to above errors";
     }
 
     our %Dividers = (
@@ -424,11 +424,11 @@ sub Snapshot_statfunc {
 	}
 	my $textstat = $status->text_status;
 	my $textstatname = $SVN::S4::WCSTAT_STRINGS{$textstat};
-	die "%Error: text_status code $textstat not recognized" if !defined $textstatname;
+	die "s4: %Error: text_status code $textstat not recognized" if !defined $textstatname;
 	print STDERR "text_status = $textstatname (value=$textstat)\n";
 	my $propstat = $status->prop_status;
 	my $propstatname = $SVN::S4::WCSTAT_STRINGS{$propstat};
-	die "%Error: prop_status code $propstat not recognized" if !defined $propstatname;
+	die "s4: %Error: prop_status code $propstat not recognized" if !defined $propstatname;
 	print STDERR "prop_status = $propstatname (value=$propstat)\n";
 	my $entry = $status->entry;
 	if ($entry) {
@@ -444,8 +444,8 @@ sub Snapshot_statfunc {
     my $propstat = $status->prop_status;
     my $textstatname = $SVN::S4::WCSTAT_STRINGS{$textstat};
     my $propstatname = $SVN::S4::WCSTAT_STRINGS{$propstat};
-    die "%Error: text_status code $textstat not recognized" if !defined $textstatname;
-    die "%Error: prop_status code $propstat not recognized" if !defined $propstatname;
+    die "s4: %Error: text_status code $textstat not recognized" if !defined $textstatname;
+    die "s4: %Error: prop_status code $propstat not recognized" if !defined $propstatname;
     $obj->{text_status} = $textstatname;
     $obj->{prop_status} = $propstatname;
     my $entry = $status->entry;
@@ -507,7 +507,8 @@ sub do_svn_status {
 sub run_nocheck {
     my ($self, $cmd) = @_;
     print STDERR "Exec: $cmd\n" if $self->debug;
-    my $status = system $cmd || die "%Error: system $cmd failed: $?";
+    my $status = system($cmd)
+	or die "s4: %Error: system $cmd failed: $?";
     return ($? >> 8);
 }
 
@@ -578,7 +579,7 @@ sub parent_of_dir {
         $parent_path = '.';
     }
     my $parent = $Dir_by_dirpath{$parent_path};
-    #die "%Error: could not find parent for directory $dir->{dirpath}" if !defined $parent;
+    #die "s4: %Error: could not find parent for directory $dir->{dirpath}" if !defined $parent;
     # Oops, actually this can happen on an external to dir1/dir2 where dir1 is
     # not a versioned directory.
     return $parent;
@@ -595,10 +596,10 @@ sub text_or_binary {
 
 sub inline_binaries {
     my $self = shift;
-    if (!defined $_[0]) { die "%Error: inline_binaries called with empty list"; }
+    if (!defined $_[0]) { die "s4: Internal-%Error: inline_binaries called with empty list"; }
     my $tarcmd = "tar czf - " . join (' ', @_);
     print STDERR "Exec: $tarcmd |\n" if $self->debug;
-    open (PIPE, "$tarcmd |") || die "%Error: open pipe from tar";
+    open (PIPE, "$tarcmd |") || die "s4: %Error: open pipe from tar";
     my $status;
     my $buf;
     while ($status = read(PIPE, $buf, 60*57)) {
@@ -606,7 +607,7 @@ sub inline_binaries {
     }
     close PIPE;
     if ($status!=0) {
-        die "%Error: while reading gzipped tar file: $!";
+        die "s4: %Error: while reading gzipped tar file: $!";
     }
 }
 

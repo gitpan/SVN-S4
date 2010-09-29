@@ -15,7 +15,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 our $Info = 1;
 
 
@@ -43,12 +43,6 @@ sub info {
         my $string = shift;
 	print "s4: $string\n";
     }
-}
-
-sub error {
-    my $string = shift;
-    warn "%Error: $string\n";
-    exit 1;
 }
 
 sub viewspec_hash {
@@ -94,7 +88,7 @@ sub parse_viewspec {
     my $fh = new IO::File;
     if ($fn =~ m%://%) {
         # treat it as an svn url
-	$fh->open ("svn cat $fn |") or die "%Error: cannot run svn cat $fn";
+	$fh->open ("svn cat $fn |") or die "s4: %Error: cannot run svn cat $fn";
     } else {
 	# When opening an include file, we search relative to the top level
 	# viewspec filename.  If it's not an absolute path, prepend the directory
@@ -108,7 +102,7 @@ sub parse_viewspec {
 	    # if the file exists, accept the $candidate
 	    $fn = $candidate if (-f $candidate);
 	}
-	$fh->open ("< $fn") or die "%Error: cannot open file $fn";
+	$fh->open ("< $fn") or die "s4: %Error: cannot open file $fn";
     }
     while (<$fh>) {
         s/#.*//;       # hash mark means comment to end of line
@@ -116,13 +110,14 @@ sub parse_viewspec {
 	s/\s+$//;      # remove trailing space
 	next if /^$/;  # remove empty lines
 	#vsdebug ("viewspec: $_");
-	$self->parse_viewspec_line ($_);
+	$self->parse_viewspec_line ($fn, $_);
     }
     $fh->close;
 }
 
 sub parse_viewspec_line {
     my $self = shift;
+    my $filename = shift;
     my $line = shift;
     my @args = split(/\s+/, $line);
     $self->expand_viewspec_vars (\@args);
@@ -137,9 +132,9 @@ sub parse_viewspec_line {
         $self->viewspec_cmd_set (@args);
     } else {
 	if ($line =~ /(>>>>>>|<<<<<<|======)/) {
-	    die "%Error: Error parsing viewspec. It looks like Project.viewspec has SVN conflict markers in it!";
+	    die "s4: %Error: $filename:$.: It looks like Project.viewspec has SVN conflict markers in it\n";
 	}
-        die "%Error: Unrecognized command in Project.viewspec: '$cmd'";
+        die "s4: %Error: $filename:$.: Unrecognized command in Project.viewspec: '$cmd'\n";
     }
 }
 
@@ -162,7 +157,13 @@ sub viewspec_cmd_view {
     $rev = "" if !defined $rev;
     vsdebug "cmd_view: url=$url  dir=$dir  revtype=$revtype  rev=$rev";
     if (!defined $url || !defined $dir) {
-        error("view command requires URL and DIR argument");
+        die "s4: %Error: view command requires URL and DIR argument\n";
+    }
+    # Replace ^
+    if ($url =~ s!^\^!!) {
+	my $root = $self->file_root(filename=>$self->{viewspec_path});
+	$url = $root.$url;
+	vsdebug "expanded url to $url";
     }
     # check syntax of revtype,rev
     if ($revtype eq 'rev') {
@@ -174,13 +175,13 @@ sub viewspec_cmd_view {
     } elsif ($self->{revision}) {
 	$rev = $self->{revision};
     } else {
-        die "%Error: parsing view line in viewspec, but revision variable is missing";
+        die "s4: %Error: parsing view line in viewspec, but revision variable is missing";
     }
     $self->ensure_valid_rev_string($rev);
     # if there is already an action on this directory, abort.
     foreach (@list_actions) {
         if ($dir eq $_->{dir}) {
-	    die "%Error: In Project.viewspec, one view line collides with a previous one for directory '$dir'. You must either remove one of the view commands or add an 'unview' command before it.";
+	    die "s4: %Error: In Project.viewspec, one view line collides with a previous one for directory '$dir'. You must either remove one of the view commands or add an 'unview' command before it.";
 	}
     }
     my $action;
@@ -215,7 +216,7 @@ sub viewspec_cmd_include {
     my ($file) = @_;
     vsdebug "viewspec_cmd_include $file";
     $self->{parse_viewspec_include_depth}++;
-    error "Excessive viewspec includes. Is this infinite recursion?"
+    die "s4: %Error: Excessive viewspec includes. Is this infinite recursion?"
          if $self->{parse_viewspec_include_depth} > 100;
     $self->parse_viewspec (filename=>$file);
     $self->{parse_viewspec_include_depth}--;
@@ -273,13 +274,13 @@ sub apply_viewspec {
 	    if (!-e "$params{path}/$reldir") {
 	        # Directory does not exist yet. Use the voids trick to create
 		# a versioned directory there that is switched to an empty dir.
-		print "s4: Creating empty directory to switch into: $reldir\n";
+		print "s4: Creating empty directory to switch into: $reldir\n" if $self->debug;
 		my $basedir = $params{path};
 		$self->create_switchpoint_hierarchical($basedir, $reldir);
 	    }
 	    my $rev = $action->{rev};
 	    if ($rev eq 'HEAD') {
-	        die "%Error: with '-r HEAD' in the viewspec actions list, the tree can have inconsistent revision numbers. This should not happen.";
+	        die "s4: %Error: with '-r HEAD' in the viewspec actions list, the tree can have inconsistent revision numbers.  This is thus not allowed.\n";
 	    }
 
 	    my $url = $self->file_url(filename=>"$params{path}/$reldir");
@@ -290,11 +291,11 @@ sub apply_viewspec {
 		$verb = "Updating";
 	    } else {
 		if (!$self->is_file_in_repo(url=>$action->{url}, revision=>$rev)) {
-		    die "%Error: Cannot switch to nonexistent URL: $action->{url}";
+		    die "s4: %Error: Cannot switch to nonexistent URL: $action->{url}";
 		}
 		my $uuid = $self->client->uuid_from_url($action->{url});
 		if ($uuid ne $base_uuid) {
-		    die "%Error: URL $action->{url} is in a different repository! What you need is an SVN external, which viewspecs presently do not support.";
+		    die "s4: %Error: URL $action->{url} is in a different repository! What you need is an SVN external, which viewspecs presently do not support.";
 		}
 		$cmd = "$self->{svn_binary} switch $action->{url} $cleandir -r$rev";
 		$verb = "Switching";
@@ -302,13 +303,15 @@ sub apply_viewspec {
 	    if (!$self->quiet) {
 		print "s4: $verb $reldir";
 		if ($verb eq 'Switching') {
-		    print " to $action->{url}";
+		    my $rootre = quotemeta($self->file_root(path=>$action->{url}));
+		    (my $showurl = $action->{url}) =~ s/$rootre/^/;
+		    print " to $showurl";
 		    print " rev $rev" if $rev ne 'HEAD';
 		}
 		print "\n";
 	    }
 	} else {
-	    error "unknown command '$action";
+	    die "s4: %Error: unknown s4 viewspec command: $action\n";
 	}
 	$self->run ($cmd);
     }
@@ -419,13 +422,13 @@ sub create_switchpoint_hierarchical {
 	my $last_time_through = ($i == $#dirparts);
 	print "s4: does '$dirpart' exist in $basedir? if not, make it\n" if $self->debug;
 	if (! -e "$basedir/$dirpart") {
-	    # Q: Why is voidurl in a loop?  It takes 1-2 seconds!?
-	    # A: I don't want to compute void_url unless it is
-	    # really needed.  And the value gets cached, so the
-	    # 2nd, 3rd, etc. call takes no time.
-	    my $voidurl = $self->void_url(url => $self->file_url(filename=>$basedir));
 	    $self->create_switchpoint ($basedir,$dirpart);
-	    unless ($last_time_through) {
+	    if (1) {  # Was $last_time_through, but fails for one level deep views
+		# Q: Why is voidurl in a loop?  It takes 1-2 seconds!?
+		# A: I don't want to compute void_url unless it is
+		# really needed.  And the value gets cached, so the
+		# 2nd, 3rd, etc. call takes no time.
+		my $voidurl = $self->void_url(url => $self->file_url(filename=>$basedir));
 		$self->run ("$self->{svn_binary} switch --quiet $voidurl $basedir/$dirpart");
 		$self->wait_for_existence (path=>"$basedir/$dirpart");
 		push @{$self->{viewspec_managed_switches}},
@@ -449,41 +452,60 @@ sub create_switchpoint {
     # This hack is specific to the working copy format, so check that the working
     # copy format is one that I recognize.
     my $format_file = "$basedir/.svn/format";
-    open (FMT, $format_file) or die "%Error: $! opening $format_file";
-    my $fmt = <FMT>;
-    chomp $fmt;
-    if ($fmt != 4 && $fmt != 8) {
-        die "%Error: create_switchpoint: I only know how to create switchpoints in working copy format=4 or format=8. But this working copy is format " . (0+$fmt);
-    }
     my $entries_file = "$basedir/.svn/entries";
-    # hacky way first, to show if it works.
-    # the right way is to use an XML parser.
+    my $fmt;
+    {
+	my $fp = (IO::File->new("<$format_file")
+		  || IO::File->new("<$entries_file"));
+	$fp or die "s4: %Error: $! opening $format_file or $entries_file";
+	$fmt = $fp->getline;
+	chomp $fmt;
+    }
+    if (!($fmt == 4 || ($fmt >= 8 && $fmt <= 10))) {
+	die "s4: %Error: create_switchpoint: I only know how to create switchpoints in working copy format=4 or format=8. But this working copy is format " . (0+$fmt);
+    }
+
     my $newfile = "$basedir/.svn/s4_tmp_$$";
-    $self->run("rm -rf $basedir/.svn/s4_tmp_*");
-    open (IN, $entries_file) or die "%Error: $! opening $entries_file";
-    open (OUT, ">$newfile") or die "%Error: $! opening $newfile";
-    die "%Error: can't make a switchpoint with a quote in it!" if $targetdir =~ /"/;
-    while (<IN>) {
-	if ($fmt == 4) {
+    unlink(glob("$basedir/.svn/s4_tmp_*"));
+    open (IN, $entries_file) or die "s4: %Error: $! opening $entries_file";
+    die "s4: %Error: can't make a switchpoint with a quote in it!" if $targetdir =~ /\"/;
+    my @out;
+    if ($fmt == 4) {
+	while (<IN>) {
 	    if (/name="$targetdir"/) {
-		die "%Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
+		die "s4: %Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
 	    }
 	    if (/<\/wc-entries>/) {
 		# Fmt=4: Just before the </wc-entries> line, add this entry
-		print OUT qq{<entry name="$targetdir" kind="dir"/> \n};
+		push @out, qq{<entry name="$targetdir" kind="dir"/> \n};
 	    }
-	} elsif ($fmt == 8) {
-	    if (/^$targetdir/) {
-		die "%Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
-	    }
+	    push @out, $_;
 	}
-	print OUT;
     }
-    if ($fmt == 8) {
-	# Fmt=8: Right at the end, add this.
-        print OUT "$targetdir\ndir\n" . chr(12) . "\n";
+    elsif ($fmt >= 8) {
+	# See subversion sources: subversion/libsvn_wc/entries.c
+	# Entries terminated by \f at next entry, then
+	#   kind, revision, url path, repo_root, schedule, timestamp, checksum,
+	#   cmt_date, cmt_rev, cmt_author, has_props, has_props_mod,
+	#   cachable_done, present_props,
+	#   prejfile, conflict_old, conflict_new, conflict_wrk,
+	#   copied, copyfrom_url, copyfrom_rev, deleted, absent, incomplete
+	#   uuid, lock_token, lock_owner, lock_comment, lock_creation_date,
+	#   changelist, keep_local, size, depth, tree_conflict_data,
+	#   external information
+	while (<IN>) {
+	    if (/^$targetdir/) {
+		die "s4: %Error: create_switchpoint: an entry called '$targetdir' already exists in .svn/entries";
+	    }
+	    push @out, $_;
+	}
+	# Right at the end, add new entry.
+	push @out, "$targetdir\ndir\n" . chr(12) . "\n";
     }
-    $self->run ("/bin/mv -f $newfile $entries_file");
+    open (OUT, ">$newfile") or die "s4: %Error: $! opening $newfile";
+    print OUT join('',@out);
+    close OUT;
+    rename($newfile, $entries_file) or die "s4: Internal-%Error: $! on 'mv $newfile $entries_file',";
 }
 
 ######################################################################
@@ -511,39 +533,7 @@ SVN::S4::ViewSpec implements parsing viewspec files and performing the
 svn updates and svn switches required to make your working copy match the
 viewspec file.
 
-A viewspec file format is a text file containing a series of one-line
-commands.  Anything after a # character is considered a comment.
-Whitespace and blank lines are ignored.  The commands must be one of:
-
-  set  VAR   VALUE
-    Set environment variable VAR to VALUE.  This is useful for
-    making abbreviations to be used within the viewspec file, for
-    frequently typed things such as the name of the svn repository.
-
-  include FILE
-    Read another file that contains viewspec commands.
-    If the filename does not begin with a slash, it is considered
-    to be relative to the directory containing the Project.viewspec.
-
-  include URL
-    Read a file out of the SVN repository that contains viewspec commands.
-
-  view URL DIR
-    Directory DIR will be svn switched to URL.
-
-  view URL DIR rev REVNUM
-    Directory DIR will be svn switched to URL at revision REVNUM.
-    Note that this is not "sticky" the way CVS was.  Svn updates
-    will override the revision number, while s4 update will not.
-
-    REVNUM can also be a date in normal subversion format, as listed here:
-    http://svnbook.red-bean.com/nightly/en/svn-book.html#svn.tour.revs.dates
-    Example:  view URL DIR rev {2006-07-01}
-
-  unview DIR
-    Ignore any view/unview commands that came above, for directories
-    that begin with DIR.  This may be useful if you have included
-    a viewspec and want to override some of its view commands.
+For viewspec documentation, see L<s4>.
 
 =head1 METHODS
 
@@ -582,6 +572,6 @@ Bryce Denney <bryce.denney@sicortex.com>
 
 =head1 SEE ALSO
 
-L<SVN::S4>
+L<SVN::S4>, L<s4>
 
 =cut

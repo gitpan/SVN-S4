@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 
 our %_Aliases =
     (
@@ -722,6 +722,23 @@ our %_Args =
                .' [--url URL]'
                .' [-v|--verbose]'
                . ' PATH')},
+  'workpropdel'	=> {
+      s4_addition => 1,
+      args => (''
+	       .' PROPNAME')},
+  'workpropget'	=> {
+      s4_addition => 1,
+      args => (''
+	       .' PROPNAME')},
+  'workproplist' => {
+      s4_addition => 1,
+      args => (''
+	       .' [--xml]'
+	       .' [-v|--verbose]')},
+  'workpropset'	=> {
+      s4_addition => 1,
+      args => (''
+	       .' PROPNAME PROPVAL')},
   );
 
 #######################################################################
@@ -870,7 +887,7 @@ sub parseCmd {
 	    print "case6. added parser{$paramNum} = ", Dumper($parser{$paramNum}), "\n" if $Debug;
 	    $paramNum++;
 	} else {
-	    die "Internal %Error: Bad Cmd Template $cmd/$paramNum: $cmdTemplate,";
+	    die "s4: Internal-%Error: Bad Cmd Template $cmd/$paramNum: $cmdTemplate,";
 	}
     }
     #use Data::Dumper; print "parseCmd: ",Dumper(\%parser) if $Debug||1;

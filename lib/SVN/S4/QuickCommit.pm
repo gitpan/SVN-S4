@@ -16,7 +16,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 
 our @Quick_Commit_status_data;
 our $Quick_Commit_self;
@@ -99,10 +99,10 @@ sub Quick_Commit_statfunc {
     my $stat = $status->text_status;
 
     my $text_status_name = $SVN::S4::WCSTAT_STRINGS{$stat};
-    die "%Error: text_status code $stat not recognized" if !defined $text_status_name;
+    die "s4: %Error: text_status code $stat not recognized" if !defined $text_status_name;
     my $pstat = $status->prop_status;
     my $prop_status_name = $SVN::S4::WCSTAT_STRINGS{$pstat};
-    die "%Error: prop_status code $pstat not recognized" if !defined $prop_status_name;
+    die "s4: %Error: prop_status code $pstat not recognized" if !defined $prop_status_name;
     if ($Quick_Commit_self->debug) {
 	print "================================\n";
 	print "path = $path\n";

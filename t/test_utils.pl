@@ -5,10 +5,16 @@
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 use IO::File;
+use Cwd;
 use vars qw($PERL $REPO $REPOFN);
 
+if ($ENV{S4_SVN}) {
+    print "unsetenv S4_SVN\n";
+    delete $ENV{S4_SVN};   # Don't complicate matters
+}
+
 $PERL = "$^X -Iblib/arch -Iblib/lib";
-$REPOFN = $ENV{PWD}."/test_dir/repo";
+$REPOFN = getcwd()."/test_dir/repo";
 $REPO = "file://localhost$REPOFN";
 
 mkdir 'test_dir',0777;

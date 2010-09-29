@@ -16,7 +16,7 @@ use Cwd qw(getcwd chdir);
 use File::Find;
 use File::Spec;
 use File::Spec::Functions;
-use Data::Dumper; $Data::Dumper::Indent=1;
+use Data::Dumper; $Data::Dumper::Indent=$Data::Dumper::Sortkeys=1;
 use Carp;
 use strict;
 
@@ -27,7 +27,7 @@ use vars qw ($Debug $VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.034';
+$VERSION = '1.040';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -88,7 +88,7 @@ if ($Opt_Cmd eq '') {
     # in svn, a few things work even with no subcommand
     if ($Opt_Version) {
 	if (!$Opt_Quiet) {
-	    print "s4 wrapper around subversion (version $VERSION)\n";
+	    print "s4 wrapper around subversion (Version $VERSION)\n";
 	    print "by Bryce Denney and Wilson Snyder\n";
 	    print "\n";
 	}
@@ -126,6 +126,14 @@ if ($Opt_Cmd eq "help-summary") {
     cmd_switch();
 } elsif ($Opt_Cmd eq "update") {
     cmd_update();
+} elsif ($Opt_Cmd eq "workpropdel") {
+    cmd_workpropdel();
+} elsif ($Opt_Cmd eq "workpropget") {
+    cmd_workpropget();
+} elsif ($Opt_Cmd eq "workproplist") {
+    cmd_workproplist();
+} elsif ($Opt_Cmd eq "workpropset") {
+    cmd_workpropset();
 } else {
     cmd_svn();
 }
@@ -410,12 +418,50 @@ sub cmd_scrub {
     my $path = $opts{path}[0];
     if (!defined $path) {
 	print "%Error: s4 scrub requires the path of the area to scrub.\n";
-	die "%Error: Please read the help messages very carefully before using scrub!";
+	die "%Error: s4 scrub: Please read the help messages very carefully before using scrub!";
     }
     ###$path = "." if !defined $path;  # make them type it
     $s4->strong_revert (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0],
 			verbose=>(!defined $opts{'--noverbose'}));
     check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
+}
+
+sub cmd_workpropdel {
+    print "cmd_workpropdel ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    !$opts{unknown} or die "%Error: s4 workpropdel: Unknown argument: $opts{unknown}[0]\n";
+    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    my $propname = $opts{propname}[0];
+    (defined $propname) or die "%Error: s4 workpropdel requires the property name\n";
+    $s4->workpropdel (propname=>$propname);
+}
+
+sub cmd_workpropget {
+    print "cmd_workpropget ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    !$opts{unknown} or die "%Error: s4 workpropget: Unknown argument: $opts{unknown}[0]\n";
+    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    my $propname = $opts{propname}[0];
+    (defined $propname) or die "%Error: s4 workpropget requires the property name\n";
+    $s4->workpropget (propname=>$propname, print=>1);
+}
+
+sub cmd_workproplist {
+    print "cmd_workpropget ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    !$opts{unknown} or die "%Error: s4 workpropget: Unknown argument: $opts{unknown}[0]\n";
+    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    $s4->workproplist (print=>1,
+		       verbose=>$opts{'-v'},
+		       xml=>$opts{'--xml'});
+}
+
+sub cmd_workpropset {
+    print "cmd_workpropset ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    !$opts{unknown} or die "%Error: s4 workpropset: Unknown argument: $opts{unknown}[0]\n";
+    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    my $propname = $opts{propname}[0];
+    my $propval = $opts{propval}[0];
+    (defined $propname) or die "%Error: s4 workpropset requires the property name\n";
+    (defined $propval) or die "%Error: s4 workpropset requires the property value\n";
+    $s4->workpropset (propname=>$propname, value=>$propval);
 }
 
 sub cmd_help {
@@ -657,8 +703,28 @@ If Project.viewspec is present, s4 does the steps described in the
 "checkout" section above.
 
 In most updates, the viewspec file has not changed drastically, so there is
-no need to redo the svn switches, and s4 will do svn update.  But if the tree
-structure changes, s4 will redo the switch commands.
+no need to redo the svn switches, and s4 will do svn update.  But if the
+tree structure changes, s4 will redo the switch commands.
+
+=head2 workpropdel I<propname>
+
+s4 workpropdel deletes a work-area property of the given name, if it
+exists.
+
+=head2 workpropget I<propname>
+
+s4 workpropget returns a work-area property of the given name, if it
+exists, otherwise "".
+
+=head2 workproplist [--xml]
+
+s4 workproplist lists all work area properties, with their values.
+
+=head2 workpropset I<propname> I<propvalue>
+
+s4 workpropset sets a work-area property of the given name to the given
+value.  Work area properties are associated and unique to a given work
+area, and stored in the top level .svn directory.
 
 =head1 ARGUMENTS
 
@@ -670,6 +736,52 @@ Displays this message and program version and exits.
 
 =back
 
+=head1 VIEWSPEC FILES
+
+A viewspec file is a text file containing a series of one-line commands.
+Anything after a # character is considered a comment.  Whitespace and blank
+lines are ignored.  The commands must be one of:
+
+=over 4
+
+=item set VAR VALUE
+
+Set environment variable VAR to VALUE.  This is useful for making
+abbreviations to be used within the viewspec file, for frequently typed
+things such as the name of the svn repository.
+
+=item include FILE
+
+Read another file that contains viewspec commands.  If the filename does
+not begin with a slash, it is considered to be relative to the directory
+containing the Project.viewspec.
+
+=item include URL
+
+Read a file out of the SVN repository that contains viewspec commands.
+
+=item view URL DIR
+
+Directory DIR will be svn switched to URL.
+
+=item view URL DIR rev REVNUM
+
+Directory DIR will be svn switched to URL at revision REVNUM.  Note that
+this is not "sticky" the way CVS was.  Svn updates will override the
+revision number, while s4 update will not.
+
+REVNUM can also be a date in normal subversion format, as listed here:
+http://svnbook.red-bean.com/nightly/en/svn-book.html#svn.tour.revs.dates
+Example: view URL DIR rev {2006-07-01}
+
+=item unview DIR
+
+Ignore any view/unview commands that came above, for directories that begin
+with DIR.  This may be useful if you have included a viewspec and want to
+override some of its view commands.
+
+=back
+
 =head1 FILES
 
 =over 4
@@ -677,6 +789,11 @@ Displays this message and program version and exits.
 =item .cvsignore, .gitignore
 
 Used by the fixprop command to specify the contents for the svn:ignore property.
+
+=item .svn/workprops
+
+S4 workprop* commands store the work area properties in a workprops file in
+the highest .svn directory.  This file is in YAML format.
 
 =back
 
@@ -686,7 +803,8 @@ Used by the fixprop command to specify the contents for the svn:ignore property.
 
 =item S4_SVN
 
-Name of svn executable, or "svn" if not specified.
+Name of svn executable, or "svn" if not specified.  One good alternative is
+"rsvn" which will speed up work areas on NFS disks.
 
 =back
 

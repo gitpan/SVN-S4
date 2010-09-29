@@ -15,7 +15,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 our $Info = 1;
 
 
@@ -39,7 +39,7 @@ sub update {
     my @paths = @{$params{paths}} if $params{paths};
     push @paths, "." if !@paths;
     if (!$params{fallback_cmd}) {  # used when called from within S4.
-	die "%Error: s4 update needs revision" unless defined $params{revision};
+	die "s4: %Error: s4 update needs revision" unless defined $params{revision};
 	my @cmd = ($self->{svn_binary}, 'update', @paths);
 	push @cmd, ('--revision', $params{revision});
 	$params{fallback_cmd} = \@cmd;
@@ -72,7 +72,7 @@ sub update {
     # Run update nonrecursively the first time.  The viewspec may replace
     # pieces of the tree, so it would sometimes be a big waste of time to
     # update it all.
-    print "Updating the top\n" if !$self->quiet;
+    print "Updating the top\n" if $self->debug;
     my @cmd_nonrecursive = ($self->{svn_binary}, "update", "--non-recursive", @paths);
     push @cmd_nonrecursive, "--quiet" if $self->quiet;
     push @cmd_nonrecursive, ("-r$rev");
@@ -83,7 +83,7 @@ sub update {
     # did viewspec just disappear???
     $found_viewspec = (-d "$paths[0]" && -f $viewspec);
     if (!$found_viewspec) {
-        print "Viewspec disappeared. Do normal update.\n" if !$self->quiet;
+        print "Viewspec disappeared. Do normal update.\n" if $self->debug;
         print "viewspec was here, but now it's gone! update normally.\n" if $self->debug;
 	return $self->run ($params{fallback_cmd});
     }
@@ -96,7 +96,6 @@ sub update {
     # directory is scheduled to be updated to the same version (no rev NUM clauses),
     # then you can safely use a single update.
     if (!$self->viewspec_changed(path=>$paths[0]) && $self->viewspec_compare_rev($rev)) {
-        print "No viewspec changes. Update the whole tree.\n" if !$self->quiet;
         print "viewspec is same as before. update normally.\n" if $self->debug;
 	return $self->run ($params{fallback_cmd});
     }
@@ -112,7 +111,7 @@ sub checkout {
 		  #fallback_cmd=>,
                   @_);
     if (!$params{fallback_cmd}) {  # used when called from within S4.
-	die "%Error: s4 checkout needs url,path,revision"
+	die "s4: %Error: s4 checkout needs url,path,revision"
 	   unless defined $params{url} && defined $params{path} && defined $params{revision};
 	my @cmd = ($self->{svn_binary}, 'checkout', $params{url}, $params{path});
 	push @cmd, ('--revision', $params{revision});
@@ -139,7 +138,7 @@ sub checkout {
     # Run checkout nonrecursively the first time.  The viewspec may replace
     # pieces of the tree, so it would sometimes be a big waste of time to
     # checkout it all.
-    print "Checkout the top level directory into $params{path}\n";
+    print "s4: Checkout the top view directory into $params{path}\n" if $self->debug;
     my @cmd_nonrecursive = ($self->{svn_binary}, "checkout", "--revision", $rev, "--non-recursive", $params{url}, $params{path});
     push @cmd_nonrecursive, "--quiet" if $self->quiet;
     print "\t",join(' ',@cmd_nonrecursive),"\n" if $self->debug;
@@ -153,7 +152,7 @@ sub checkout {
     if (!$found_viewspec) {
 	# I can only imagine this happening if checkout was interrupted, or somebody
 	# deleted the viewspec from the repo in the last few seconds.
-	die "%Error: viewspec was in repo at $viewspec_url, but I could not find it in your checkout!";
+	die "s4: %Error: viewspec was in repo at $viewspec_url, but I could not find it in your checkout!";
     }
     print "Parse the viewspec file $viewspec\n" if $self->debug;
     $self->parse_viewspec (filename=>$viewspec, revision=>$rev);

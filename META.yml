@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:         SVN-S4
-version:      1.034
+version:      1.040
 version_from: lib/SVN/S4.pm
 abstract:     Wrapper for Subversion
 license:      perl
@@ -13,8 +13,9 @@ resources:
     bugtracker: http://www.veripool.org/svn-s4-bugs
 requires:
     SVN::Client:                    0
-    IO::AIO:                        0
+    Config::Tiny:                   0
     Digest::MD5:                    0
+    IO::AIO:                        0
     MIME::Base64:                   0
     Test::More:                     0
 

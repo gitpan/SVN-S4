@@ -34,7 +34,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 our $Info = 1;
 
 
@@ -75,8 +75,7 @@ sub strong_revert_main {
     my $existing_tree_url = $self->file_url (filename=>$params{path}, assert_exists=>0);
     if (!defined $existing_tree_url) {
 	if (!defined $params{url}) {
-	    print "ERROR: You must specify --url since there isn't an existing source tree\nat $params{path}.";
-	    usage();
+	    die "s4: %Error: You must specify --url since there isn't an existing source tree at $params{path}\n";
 	}
 	$params{revision} = "HEAD" if !defined $params{revision};
 	if (-d $params{path}) {
@@ -96,7 +95,7 @@ sub strong_revert_main {
     # find base revision, use that as a default if $params{revision} not specified.
     if (!defined $params{revision}) {
 	$params{revision} = $self->get_svn_rev ($params{path});
-	die "%Error: Could not find revision number of tree at $params{path}" if !defined $params{revision};
+	die "s4: %Error: Could not find revision number of tree at $params{path}" if !defined $params{revision};
     }
 
     #print "Reverting tree at $params{path}\n";
@@ -171,10 +170,10 @@ sub Strong_Revert_statfunc {
     my ($path, $status) = @_;
     my $stat = $status->text_status;
     my $text_status_name = $SVN::S4::WCSTAT_STRINGS{$stat};
-    die "%Error: text_status code $stat not recognized" if !defined $text_status_name;
+    die "s4: %Error: text_status code $stat not recognized" if !defined $text_status_name;
     $stat = $status->prop_status;
     my $prop_status_name = $SVN::S4::WCSTAT_STRINGS{$stat};
-    die "%Error: prop_status code $stat not recognized" if !defined $prop_status_name;
+    die "s4: %Error: prop_status code $stat not recognized" if !defined $prop_status_name;
     if ($Strong_Revert_Statfunc_Debug) {
 	print "================================\n";
 	print "path=$path\n";
@@ -240,7 +239,7 @@ sub cleanup {
 	my $stat = $obj->{text_status};
 	$externals_found_during_stat++ if $stat eq 'external';
 	my $propstat = $obj->{prop_status};
-	#die "%Error: if text_status is normal and prop_status is normal, why was this marked unclean? $obj->{path}" if ($stat eq 'normal' && $propstat eq 'normal');
+	#die "s4: Internal-%Error: if text_status is normal and prop_status is normal, why was this marked unclean? $obj->{path}" if ($stat eq 'normal' && $propstat eq 'normal');
 	if ($stat eq 'external') {
 	    # leave these alone
 	    next;
@@ -288,14 +287,14 @@ sub cleanup {
 	    push @rmlist, $obj->{path};
 	    push @revlist, $obj->{path};
 	} else {
-	    die "%Error: status code unknown '$stat'";
+	    die "s4: Internal-%Error: status code unknown '$stat'";
 	}
     }
     my $changes = 0;
     # remove everything on remove list
     if (@rmlist) {
 	#print "  Deleting ", ($#rmlist+1), " files/directories\n" if $params->{verbose};
-	open (RM, "| xargs --null rm -rf") or die "%Error: open pipe to xargs rm";
+	open (RM, "| xargs --null rm -rf") or die "s4: %Error: open pipe to xargs rm";
 	foreach my $name (@rmlist) {
 	    next if $name eq $path || $name eq '.' || $name eq '..';
 	    print "  + rm -rf '$name'\n" if $self->debug;
@@ -308,7 +307,8 @@ sub cleanup {
     # revert everything on revert list
     if (@revlist) {
 	#print "  Svn reverting ", ($#revlist+1), " files/directories\n" if $params->{verbose};
-	open (REV, "| xargs --null $self->{svn_binary} revert -q") or die "%Error: open pipe to xargs revert";
+	open (REV, "| xargs --null $self->{svn_binary} revert -q")
+	    or die "s4: %Error: open pipe to xargs revert";
 	foreach my $name (@revlist) {
 	    print "  + $self->{svn_binary} revert $name\n" if $self->debug;
 	    print "U    $name\n" if $params->{verbose};
@@ -320,7 +320,8 @@ sub cleanup {
     # "svn rm --force" everything on svnrmlist
     if (@svnrmlist) {
 	#print "  Svn removing ", ($#svnrmlist+1), " files/directories\n" if $params->{verbose};
-	open (REV, "| xargs --null $self->{svn_binary} rm -q --force") or die "%Error: open pipe to xargs svn rm";
+	open (REV, "| xargs --null $self->{svn_binary} rm -q --force")
+	    or die "s4: %Error: open pipe to xargs svn rm";
 	# Reverse sort list by length, so that any subdirectories will be removed
 	# before the parent directory. Otherwise you run into "bla is not a working copy"
 	# problems and some of the removes are not done.
@@ -357,7 +358,7 @@ sub update_tree {
 #	$self->run_s4 ('switch', '--revision', $revision, $url, $path);
 #    }
     print STDERR "\nfinished svn update\n" if $self->debug;
-    #die "%Error: Update returned revision $revout, should be $revision" if $revout != $revision;
+    #die "s4: %Error: Update returned revision $revout, should be $revision" if $revout != $revision;
 }
 
 sub update_callback {

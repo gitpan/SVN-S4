@@ -6,7 +6,7 @@
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 use strict;
-use Test;
+use Test::More;
 use Cwd;
 
 BEGIN { plan tests => 4 }
@@ -17,12 +17,12 @@ my $out;
 write_text("test_dir/trunk/tdir2/tfile_fixprop1", 'Hello');
 write_text("test_dir/trunk/tdir2/tfile_fixprop2", '$'.'Id'.'$');
 run_system("${PERL} s4 add test_dir/trunk/tdir2/tfile_fixprop*");
-ok(1);
+ok(1,'add');
 
 $out = `${PERL} s4 status test_dir/trunk/tdir2/tfile_fixprop*`;
-ok($out =~ /^A /);
+like($out, qr/^A /, 'status');
 
 $out = `${PERL} s4 propget svn:keywords test_dir/trunk/tdir2/tfile_fixprop1`;
-ok($out eq "");
+is($out, "", 'propget');
 $out = `${PERL} s4 propget svn:keywords test_dir/trunk/tdir2/tfile_fixprop2`;
-ok($out =~ /id/);
+like($out, qr/id/, 'propget');

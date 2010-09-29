@@ -6,15 +6,16 @@
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 use strict;
-use Test;
+use Test::More;
 use Cwd;
 
 BEGIN { plan tests => 1 }
 BEGIN { require "t/test_utils.pl"; }
 
-if (!-e ".svn") {
-    skip("Not in a subversion area",1);
-} else {
+SKIP: {
+    skip("Not in a subversion area",1)
+	if (!-e ".svn");
+
     run_system("${PERL} s4 info");
-    ok(1);
+    ok(1,'s4 info');
 }

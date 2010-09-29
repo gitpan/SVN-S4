@@ -5,6 +5,7 @@ package SVN::S4;
 require 5.006_001;
 use File::Find;
 use File::Spec;
+use Cwd;
 
 use Carp;
 use Data::Dumper;
@@ -20,13 +21,14 @@ use SVN::S4::ViewSpec;
 use SVN::S4::QuickCommit;
 use SVN::S4::Snapshot;
 use SVN::S4::StrongRevert;
+use SVN::S4::WorkProp;
 use vars qw($Debug);
 use strict;
 
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -169,6 +171,7 @@ sub open {
 sub clean_filename {
     my $self = shift;
     my $filename = shift;
+    $filename .= "";  # Important - converts non-string to string
     $filename =~ s%^\./%%;  # Sometimes results in errors
     # Multiple slashes in pathname (foo//bar) works for many purposes,
     # but svn::client says:
@@ -182,8 +185,8 @@ sub clean_filename {
 sub abs_filename {
     my $self = shift;
     my $filename = $self->clean_filename(shift);
-    $filename = $ENV{PWD} if $filename eq '.';
-    $filename = $ENV{PWD}."/".$filename if $filename !~ m%^/%;
+    $filename = getcwd if $filename eq '.';
+    $filename = getcwd."/".$filename if $filename !~ m%^/%;
     foreach (1..100) {
 	# You may have to call readlink several times to resolve all the
 	# symlinks, but I didn't want any chance of an infinite loop, so I chose
@@ -208,10 +211,13 @@ sub wait_for_existence {
                   timeout=>20,
                   @_);
     my $max=$params{timeout};
+    (my $parent = $params{path}) =~ s!(.*)/[^/]+$!$1!;
     foreach (1..$max) {
+	# In theory, this should make NFS reread the directory
+	{ mkdir $parent, 0777; }
 	return 1 if (-d $params{path});
 	print "Waiting for $params{path} to appear from file server\n" if $self->debug;
-	die "%Error: after $max seconds, the directory $params{path} is still not present." if $_==$max;
+	die "s4: %Error: after $max seconds, the directory $params{path} is still not present." if $_==$max;
 	sleep 1;
     }
 }
@@ -305,7 +311,7 @@ sub save_viewspec_state {
       viewspec_hash => $self->{viewspec_hash},
       viewspec_managed_switches => $self->{viewspec_managed_switches},
     };
-    CORE::open (OUT, ">$state_file") or die "%Error: $! writing $state_file";
+    CORE::open (OUT, ">$state_file") or die "s4: %Error: $! writing $state_file";
     print OUT "# S4 State File\n";
     print OUT Dumper($state);
     print OUT "1;  # so that require of this file will work\n";
@@ -344,10 +350,34 @@ sub file_url {
     };
     $self->restore_all_output();
     if ($params{assert_exists} && $error) {
-        die "%Error: file_url: could not find url for path $filename";
+        die "s4: %Error: file_url: could not find url for path $filename";
     }
     print "url is $url\n" if $self->debug;
     return $url;
+}
+
+sub file_root {
+    my $self = shift;
+    if (!$self->{_root}) {
+	my %params = (#filename =>
+		      @_);
+	print "\tfile_root $params{filename}\n" if $Debug;
+	my $filename = $self->abs_filename($params{filename});
+	print "absolute filename = $filename\n" if $Debug;
+	$self->open();
+	my $root;
+	$self->hide_all_output();
+	$self->client->info($filename, undef, undef,
+			    sub {
+				my ($file, $info, $pool) = @_;
+				$root = $info->repos_root_URL;
+			    }, 0);
+	$self->restore_all_output();
+	$root or die "s4: %Error: No SVN root found for $filename\n";
+	print "\tfile_root $params{filename} -> $root\n" if $Debug;
+	$self->{_root} = $root;
+    }
+    return $self->{_root};
 }
 
 sub is_file_personal {
@@ -413,26 +443,28 @@ sub rev_on_date {
     my $cached = $self->{rev_on_date_cache}{$date};
     return $cached if $cached;
 
-    my $url = $params{url};
+    my $url = $params{url}."";
     if (!SVN::S4::Path::isURL($params{url})) {
 	$url = $self->file_url(filename=>$url);
     }
     if (!$url) {
 	# If url is a file that doesn't exist, you can get undef $url.
 	# If you pass the undef into revprop_list it will segfault.
-	die "%Error: rev_on_date was called with a bad file or url: $params{url}";
+	die "s4: %Error: rev_on_date was called with a bad file or url: $params{url}";
     }
     $self->ensure_valid_rev_string ($date);
     print "about to call revprop_list with url=$url rev=$date\n" if $self->debug;
-    my ($props,$rev) = $self->client->revprop_list($url, $date);
+    # Concat with "" makes it into a string, if it's not.
+    # gets around TypeError in method 'svn_client_revprop_list', argument 2
+    my ($props,$rev) = $self->client->revprop_list($url."", $date, $self->pool);
     if ($rev !~ /[0-9]+/) {
-	die "%Error: failed to look up revision number for '$date'";
+	die "s4: %Error: failed to look up revision number for '$date'";
     }
     if ($rev > 0 && $rev < 9999999999 && $rev =~ /^[0-9]+$/) {
 	$self->{rev_on_date_cache}->{$date} = $rev;
         return $rev;
     }
-    die "%Error: failed to look up revision number for '$date'";
+    die "s4: %Error: failed to look up revision number for '$date'";
 }
 
 sub rev_of_head {
@@ -441,7 +473,7 @@ sub rev_of_head {
     		  #path=>,
 		  @_);
     my $url_or_path = $params{url} || $params{path};
-    die "%Error: rev_of_head called without url or path param. either one is fine" if !$url_or_path;
+    die "s4: %Error: rev_of_head called without url or path param. either one is fine" if !$url_or_path;
     return $self->rev_on_date(url=>$url_or_path, date=>"HEAD");
 }
 
@@ -459,7 +491,7 @@ sub which_rev {
     }
     return $self->rev_of_head(path=>$params{path}) if $params{path};
     return $self->rev_of_head(url=>$params{url})   if $params{url};
-    die "%Error: which_rev called without url or path param";
+    die "s4: %Error: which_rev called without url or path param";
 }
 
 # Given a URL in the repository, find the URL of the "void" directory.
@@ -484,7 +516,7 @@ sub void_url {
     print "void_url url=$params{url}\n" if $self->debug;
     return $self->{void_url} if $self->{void_url};  # use cached copy
     my ($proto,$server,$path) = $params{url} =~ /(.*:\/{2,3})([^\/]+)(\/.*)/;
-    die "%Error: could not parse url $params{url}" if !defined $proto || !defined $server || !defined $path;
+    die "s4: %Error: could not parse url $params{url}" if !defined $proto || !defined $server || !defined $path;
     my $pathbuild = "$proto$server";
     # I wrote the above regexp so that $path has a slash in front. So the first
     # time through the loop, $pathpart="".
@@ -498,7 +530,7 @@ sub void_url {
 	    return $url;                # I'm just gonna assume it's a directory
 	}
     }
-    die "%Error: Could not find void in any URL above $params{url}. To use viewspecs, you must create a top-level directory called void in the SVN repository.";
+    die "s4: %Error: Could not find void in any URL above $params{url}. To use viewspecs, you must create a top-level directory called void in the SVN repository.\n";
 }
 
 sub ensure_valid_rev_string {
@@ -507,14 +539,14 @@ sub ensure_valid_rev_string {
     return if $rev =~ /^[0-9]+$/;		# allow revision number
     return if $rev =~ /^{\d{4}-\d{2}-\d{2}}$/;	# allow {2006-01-01}
     return if $rev eq 'HEAD';			# allow HEAD keyword
-    error "rev argument '$rev' must have the form: r2000 or r{2006-01-01} or HEAD";
+    die "s4: %Error: rev argument '$rev' must have the form: r2000 or r{2006-01-01} or HEAD\n";
 }
 
 sub ensure_valid_date_string {
     my $self = shift;
     my $date = shift;
     return if $date =~ /^\d{4}-\d{2}-\d{2}$/;	# allow 2006-01-01
-    error "date argument '$date' must have the form: 2006-01-01";
+    die "s4: %Error: date argument '$date' must have the form: 2006-01-01\n";
 }
 
 ######################################################################

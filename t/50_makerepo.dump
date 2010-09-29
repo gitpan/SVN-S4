@@ -252,6 +252,7 @@ Node-action: add
 Prop-content-length: 10
 Text-content-length: 18
 Text-content-md5: 76f42c06eb633cea3c527faab57cfd65
+Text-content-sha1: 561437239d8b5588334f654e035f409d9f3b40eb
 Content-length: 28
 
 PROPS-END
@@ -264,9 +265,102 @@ Node-action: add
 Prop-content-length: 10
 Text-content-length: 23
 Text-content-md5: 54e37d5eaaec03ff6462f4503b685c6d
+Text-content-sha1: 9f6ee483d3590eb57e72ae44d8a364d02e6626f8
 Content-length: 33
 
 PROPS-END
 $Id:$
 File tdir2/tfile2
+
+Revision-number: 10
+Prop-content-length: 109
+Content-length: 109
+
+K 7
+svn:log
+V 8
+Add view
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2010-09-24T20:07:20.416402Z
+PROPS-END
+
+Node-path: views
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: views/trunk
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: views/trunk/view1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: views/trunk/view1/Project.viewspec
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 345
+Text-content-md5: 958cd849755413c95d0eb961dceb6bbf
+Text-content-sha1: c87aab8c0d70cb5e18dff47168703d866cab907d
+Content-length: 355
+
+PROPS-END
+########################################################################
+# This is a Project.viewspec file.  It describes how to build a subversion
+# working area in a form that the "s4" subversion wrapper can read.
+########################################################################
+
+set	EMPTY			^/void
+
+view	^/top/trunk/tdir1	trunk_tdir1
+
+
+Revision-number: 11
+Prop-content-length: 113
+Content-length: 113
+
+K 7
+svn:log
+V 11
+Create void
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2010-09-24T20:47:18.987050Z
+PROPS-END
+
+Node-path: void
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
 

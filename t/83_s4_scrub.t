@@ -6,20 +6,23 @@
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 use strict;
+use IO::File;
 use Test::More;
 use Cwd;
 
-BEGIN { plan tests => 4 }
+BEGIN { plan tests => 3 }
 BEGIN { require "t/test_utils.pl"; }
 
-run_system("${PERL} s4 help");
-ok(1,'help');
+our $S4 = "${PERL} ../../s4";
 
-run_system("${PERL} s4 help add");  # Modified cmd
-ok(1,'add');
+my $out;
 
-run_system("${PERL} s4 help fixprop");  # New cmd
-ok(1,'fixprop');
+chdir "test_dir/trunk" or die;
 
-run_system("${PERL} s4 help rm");  # Unchanged cmd
-ok(1,'rm');
+IO::File->new(">scrub_me")->close;
+is(-e "scrub_me",1,"touch scrub_me");
+
+$out = `${S4} scrub .`;
+like($out,qr/Cleaning.*\nD .*scrub_me/, 's4 scrub');
+
+is(!-e "scrub_me",1,"cleaned up scrub_me");

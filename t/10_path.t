@@ -6,7 +6,7 @@
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 use strict;
-use Test;
+use Test::More;
 use Cwd qw(getcwd);
 use File::Spec::Functions;
 
@@ -18,19 +18,23 @@ mkdir 'test_dir', 0777;
 chdir 'test_dir';
 
 use SVN::S4::Path;
-ok(1);
+ok(1, 'use');
 
 #$SVN::S4::Path::Debug = 1;
 
-ok (SVN::S4::Path::fileNoLinks('.')
-    eq getcwd());
-ok (SVN::S4::Path::fileNoLinks(catfile(catdir('bebop','.','uptoo','..','..'),'down1'))
-    eq catfile(getcwd(),"down1"));
+is (SVN::S4::Path::fileNoLinks('.'),
+    getcwd(),
+    "Path");
+is (SVN::S4::Path::fileNoLinks(catfile(catdir('bebop','.','uptoo','..','..'),'down1')),
+    catfile(getcwd(),"down1"),
+    "catfile");
 
-if ($^O =~ /win/i) {
-    skip(1,1); # symlink not supported on windows
-} else {
+SKIP: {
+    skip(1,1) # symlink not supported on windows
+	if ($^O =~ /win/i);
+
     eval { symlink ('..', 'to_dot_dot') ; };
-    ok (SVN::S4::Path::fileNoLinks(catfile('to_dot_dot','down1'))
-	eq catfile($uppwd,"down1"));
+    is (SVN::S4::Path::fileNoLinks(catfile('to_dot_dot','down1')),
+	catfile($uppwd,"down1"),
+	"fileNoLinks");
 }

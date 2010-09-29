@@ -14,11 +14,12 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
 		      CVS => 1,
+		      '.git' => 1,
 		      '.svn' => 1,
 		      blib => 1,
 		      );
@@ -64,6 +65,7 @@ sub file_has_keywords {
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use Cwd qw(getcwd);
 
 sub fixprops {
     my $self = shift;
@@ -74,7 +76,7 @@ sub fixprops {
 		  @_);
 
     my $filename = $params{filename};
-    $filename = $ENV{PWD}."/".$filename if $filename !~ m%^/%;
+    $filename = getcwd()."/".$filename if $filename !~ m%^/%;
     _fixprops_recurse($self,\%params,$filename);
 }
 
@@ -89,7 +91,7 @@ sub _fixprops_recurse {
 	if (!-r "$dir/.svn") {
 	    # silently ignore a non a subversion directory
 	} else {
-	    my $dh = new IO::Dir $dir or die "%Error: Could not directory $dir.\n";
+	    my $dh = new IO::Dir $dir or die "s4: %Error: Could not directory $dir.\n";
 	    while (defined (my $basefile = $dh->read)) {
 		next if $basefile eq '.' || $basefile eq '..';
 		my $file = $dir."/".$basefile;

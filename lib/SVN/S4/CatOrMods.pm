@@ -12,7 +12,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.034';
+our $VERSION = '1.040';
 
 #######################################################################
 #######################################################################
@@ -20,6 +20,7 @@ our $VERSION = '1.034';
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use Cwd qw(getcwd);
 use strict;
 
 sub cat_or_mods {
@@ -28,7 +29,7 @@ sub cat_or_mods {
 		  @_);
 
     my $filename = $params{filename};
-    $filename = $ENV{PWD}."/".$filename if $filename !~ m%^/%;
+    $filename = getcwd()."/".$filename if $filename !~ m%^/%;
 
     if (!-f $filename) {
 	die "%Error: s4 cat-or-mods: File does not exist: $filename\n";
@@ -60,7 +61,7 @@ sub cat_or_mods {
     if ($_Modified) {
 	print "cat-or-mods: From WORKING\n" if $self->debug;
 	my $fh = IO::File->new("<$filename")
-	    or die "%Error: $! $filename\n";
+	    or die "s4: %Error: $! $filename\n";
 	print join('',$fh->getlines);
     }
     else {

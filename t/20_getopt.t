@@ -6,7 +6,7 @@
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
 use strict;
-use Test;
+use Test::More;
 use Cwd;
 
 BEGIN { plan tests => 33 }
@@ -15,12 +15,12 @@ BEGIN { require "t/test_utils.pl"; }
 our $Debug;
 
 use SVN::S4::Getopt;
-ok(1);
+ok(1,'use');
 
 $SVN::S4::Getopt::Debug = $Debug;
 
 my $opt = new SVN::S4::Getopt;
-ok(1);
+ok(1,'new');
 
 my %hash = $opt->hashCmd("di", "-r", "2:3", "--password", "PW", "frev", "frev2");
 use Data::Dumper; print Dumper(\%hash) if $Debug;
@@ -66,5 +66,5 @@ sub ck {
     print "\t$cmd\n" if $Debug;
     my %hash = $opt->hashCmd(split /[ \t]+/, $cmd);
     use Data::Dumper; print Dumper(\%hash) if $Debug;
-    ok (\%hash);
+    ok (\%hash, "Hash for $cmd");
 }

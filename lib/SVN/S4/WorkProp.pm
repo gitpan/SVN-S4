@@ -11,7 +11,7 @@ use Config::Tiny;
 use Cwd qw(getcwd);
 use vars qw($AUTOLOAD);
 
-our $VERSION = '1.040';
+our $VERSION = '1.050';
 
 # Legal characters in keys/values.
 # Overly strict; INI format doesn't allow []; or whitespace

@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.040';
+our $VERSION = '1.050';
 
 our %_Aliases =
     (
@@ -67,7 +67,8 @@ our %_Args =
   'add'		=> {
       s4_changed => 1,
       args => (''
-	       .' [--svn]'			# S4 addition
+	       .' [--no-fixprop]'		# S4 addition
+	       .' [--fixprop]'			# S4 addition
 	       #
 	       .' [--auto-props]'
 	       .' [--depth ARG]'		# 1.6

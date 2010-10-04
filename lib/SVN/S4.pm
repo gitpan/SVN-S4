@@ -12,6 +12,7 @@ use Data::Dumper;
 use SVN::Client;
 # Our stuff
 use SVN::S4::CatOrMods;
+use SVN::S4::Config;
 use SVN::S4::FixProp;
 use SVN::S4::Getopt;
 use SVN::S4::Info;
@@ -28,7 +29,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.040';
+our $VERSION = '1.050';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);

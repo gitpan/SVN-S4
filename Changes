@@ -3,6 +3,11 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
+* SVN::S4 1.050 2010/10/04
+
+***	's4 add' no longer does fixprop by default.  Use a configuration file
+	to enable this behavior.
+
 * SVN::S4 1.040 2010/09/30
 
 **	Add 's4 workpropdel, workpropget, workpropset, workproplist'.

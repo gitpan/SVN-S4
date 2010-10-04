@@ -27,7 +27,7 @@ use vars qw ($Debug $VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.040';
+$VERSION = '1.050';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -218,10 +218,16 @@ sub cmd_add {
     print "cmd_add ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
     #Ignore: !$opts{unknown} or die "%Error: s4 add: Unknown argument: $opts{unknown}[0]\n";
     @Opt_CmdParams = $SvnOpt->stripOneArg('--raw',@Opt_CmdParams);
+    @Opt_CmdParams = $SvnOpt->stripOneArg('--fixprop',@Opt_CmdParams);
+    @Opt_CmdParams = $SvnOpt->stripOneArg('--no-fixprop',@Opt_CmdParams);
+
+    my $fp = $s4->config_get_bool('s4','add-fixprop');
+    $fp = 1 if $opts{"--fixprop"};
+    $fp = 0 if $opts{"--no-fixprop"} || $opts{"--raw"};
 
     cmd_svn();  # Do the normal add
 
-    if (!$opts{"--raw"}) {
+    if ($fp) {
 	foreach my $filename (@{$opts{path}}) {
 	    $s4->fixprops(filename=>$filename,
 			  recurse=>!$opts{"--non-recursive"},
@@ -561,10 +567,11 @@ Any command not listed here is passed directly to subversion.
 
 =head2 add
 
-Perform normal subversion add, then do a "s4 fixprop" on all of the new
-files.
+Perform normal subversion add, then if the add-fixprop configuration option
+is set, do a "s4 fixprop" on all of the new files.
 
-With --raw, just run the normal svn add, do not fixprop.
+With --no-fixprop, ignore the config setting and run the normal svn add, do
+not fixprop.  With --fixprop, ignore the config setting and fixprop.
 
 =head2 cat-or-mods
 
@@ -797,9 +804,27 @@ the highest .svn directory.  This file is in YAML format.
 
 =back
 
+=head1 CONFIG FILES
+
+The following svn config file options are added by s4.
+
+=over 4
+
+=item [s4] add-fixprop = yes
+
+If yes, an "add" command will also do a fixprop.  Note this defaulted to
+true prior to version 1.041.
+
+=back
+
 =head1 ENVIRONMENT
 
 =over 4
+
+=item S4_CONFIG
+
+Filename of additional configuration options.  Processed after the
+/etc/subversion/config and ~/.subversion/config files.
 
 =item S4_SVN
 

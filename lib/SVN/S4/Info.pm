@@ -14,7 +14,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.040';
+our $VERSION = '1.050';
 
 #######################################################################
 # Methods

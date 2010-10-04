@@ -3,6 +3,7 @@ bryce-notes.txt
 Changes
 lib/SVN/S4.pm
 lib/SVN/S4/CatOrMods.pm
+lib/SVN/S4/Config.pm
 lib/SVN/S4/FixProp.pm
 lib/SVN/S4/Getopt.pm
 lib/SVN/S4/Info.pm
@@ -27,6 +28,8 @@ t/02_help.t
 t/03_spaces.t
 t/10_path.t
 t/20_getopt.t
+t/30_config.dat
+t/30_config.t
 t/50_makerepo.dump
 t/50_makerepo.t
 t/80_s4.t

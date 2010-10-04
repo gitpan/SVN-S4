@@ -16,7 +16,7 @@ my $out;
 
 write_text("test_dir/trunk/tdir2/tfile_fixprop1", 'Hello');
 write_text("test_dir/trunk/tdir2/tfile_fixprop2", '$'.'Id'.'$');
-run_system("${PERL} s4 add test_dir/trunk/tdir2/tfile_fixprop*");
+run_system("${PERL} s4 add --fixprop test_dir/trunk/tdir2/tfile_fixprop*");
 ok(1,'add');
 
 $out = `${PERL} s4 status test_dir/trunk/tdir2/tfile_fixprop*`;

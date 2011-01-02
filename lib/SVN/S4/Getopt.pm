@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 
 our %_Aliases =
     (
@@ -838,21 +838,18 @@ sub dealias {
     return $_Aliases{$cmd}||$cmd;
 }
 
-sub parseCmd {
+sub _parse_template {
     my $self = shift;
     my $cmd = shift;
-    my @args = @_;
+    # Parse the template and return state, or undef for unknown commands
 
-    #$Debug=1;
     $cmd = $self->dealias($cmd);
-
-    # Returns an array elements for each parameter.
-    #    It's what the given argument is
-    #		Switch, The name of the switch, or unknown
     my $cmdTemplate = $_Args{$cmd}{args};
-    print "parseCmd($cmd @args) -> $cmdTemplate\n" if $Debug;
+    return undef if !$cmdTemplate;
+
     my %parser;  # Hash of switch and if it gets a parameter
     my $paramNum=0;
+    my $tempNum=0;
     my $tempElement = $cmdTemplate;
     while ($tempElement) {
 	$tempElement =~ s/^\s+//;
@@ -860,7 +857,7 @@ sub parseCmd {
 	    my $switches = $1;
 	    my $name = $1 if $switches =~ /(--[---a-zA-Z0-9_]+)/;
 	    foreach my $sw (split /[|]/, $switches) {
-		$parser{$sw} = {what=>$name, then=>undef, more=>0,};
+		$parser{$sw} = {what=>$name, then=>undef, more=>0, num=>$tempNum++};
 		print "case1. added parser{$sw} = ", Dumper($parser{$sw}), "\n" if $Debug;
 	    }
 	} elsif ($tempElement =~ s/^\[(-\S+)\s+(\S+)\]//) {
@@ -868,23 +865,23 @@ sub parseCmd {
 	    my $name = $1 if $switches =~ /(--[---a-zA-Z0-9_]+)/;
 	    $then = lc $name; $then =~ s/^-+//;  $then =~ s/[^a-z0-9]+/_/g;
 	    foreach my $sw (split /[|]/, $switches) {
-		$parser{$sw} = {what=>$name, then=>$then, more=>0,};
+		$parser{$sw} = {what=>$name, then=>$then, more=>0, num=>$tempNum++};
 		print "case2. added parser{$sw} = ", Dumper($parser{$sw}), "\n" if $Debug;
 	    }
 	} elsif ($tempElement =~ s/^\[(\S+)\.\.\.\]//) {
-	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>1,};
+	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>1, num=>$tempNum++};
 	    print "case3. added parser{$paramNum} = ", Dumper($parser{$paramNum}), "\n" if $Debug;
 	    $paramNum++;
 	} elsif ($tempElement =~ s/^\[(\S+)\]//) {
-	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>0,};
+	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>0, num=>$tempNum++};
 	    print "case4. added parser{$paramNum} = ", Dumper($parser{$paramNum}), "\n" if $Debug;
 	    $paramNum++;
 	} elsif ($tempElement =~ s/^(\S+)\.\.\.//) {
-	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>1,};
+	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>1, num=>$tempNum++};
 	    print "case5. added parser{$paramNum} = ", Dumper($parser{$paramNum}), "\n" if $Debug;
 	    $paramNum++;
 	} elsif ($tempElement =~ s/^(\S+)//) {
-	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>0,};
+	    $parser{$paramNum} = {what=>lc $1, then=>undef, more=>0, num=>$tempNum++};
 	    print "case6. added parser{$paramNum} = ", Dumper($parser{$paramNum}), "\n" if $Debug;
 	    $paramNum++;
 	} else {
@@ -892,18 +889,32 @@ sub parseCmd {
 	}
     }
     #use Data::Dumper; print "parseCmd: ",Dumper(\%parser) if $Debug||1;
+    return \%parser;
+}
+
+sub parseCmd {
+    my $self = shift;
+    my $cmd = shift;
+    my @args = @_;
+
+    # Returns an array elements for each parameter.
+    #    It's what the given argument is
+    #		Switch, The name of the switch, or unknown
+    my $parser = $self->_parse_template($cmd);
+    $parser ||= {};
+    print "parseCmd($cmd @args)\n" if $Debug;
 
     my @out;
     my $inSwitch;
-    $paramNum = 0;
+    my $paramNum = 0;
     my $inFlags = 1;
     foreach my $arg (@args) {
 	if ($inFlags && $arg =~ /^-/) {
 	    if ($arg eq "--") {
 		$inFlags = 0;
-	    } elsif ($parser{$arg}) {
-		push @out, $parser{$arg}{what};
-		$inSwitch = $parser{$arg}{then};
+	    } elsif ($parser->{$arg}) {
+		push @out, $parser->{$arg}{what};
+		$inSwitch = $parser->{$arg}{then};
 	    } else {
 		push @out, "unknown";
 	    }
@@ -911,14 +922,54 @@ sub parseCmd {
 	    if ($inSwitch) {   # Argument to a switch
 		push @out, $inSwitch;
 		$inSwitch = 0;
-	    } elsif ($parser{$paramNum}) {  # Named [optional?] argument
-		push @out, $parser{$paramNum}{what};
-		$paramNum++ if !$parser{$paramNum}{more};
+	    } elsif ($parser->{$paramNum}) {  # Named [optional?] argument
+		push @out, $parser->{$paramNum}{what};
+		$paramNum++ if !$parser->{$paramNum}{more};
 	    } else {
 		push @out, "unknown";
 	    }
 	}
     }
+    return @out;
+}
+
+sub formCmd {
+    my $self = shift;
+    my $cmd = shift;
+    my $hash = shift;
+    my @out;
+
+    my $parser = $self->_parse_template($cmd);
+    $parser or croak "%Error: Undefined formCmd command: $cmd,";
+    push @out, $cmd;
+
+    my %didarg;  # Remove duplicates, for example -R and -revision
+    foreach my $state (sort {$a->{num} <=> $b->{num}} values %{$parser}) {
+	if ($state->{what} =~ /^--?(.*)$/) {
+	    next if $didarg{$1}++;
+	    if (defined $hash->{$1}) {
+		if ($state->{then}) {  # --flag VALUE
+		    push @out, $state->{what};
+		    push @out, $hash->{$1};
+		} else {  # --flag
+		    if ($hash->{$1}) {
+			push @out, $state->{what};
+		    }
+		}
+	    }
+	} else {
+	    my $val = $hash->{$state->{what}};
+	    if (defined $val) {
+		if (ref $val && ref $val eq 'ARRAY') {
+		    push @out, @$val;
+		} else {
+		    push @out, $val;
+		}
+	    }
+	}
+	#print Dumper($state);
+    }
+    #print Dumper(\@out);
     return @out;
 }
 
@@ -1049,6 +1100,12 @@ Return true if the command is modified from normal SVN operation by s4.
 
 The filename and line number last parsed.
 
+=item $self->formCmd(<cmd>, <opts>)
+
+Return an array of command arguments needed to specify the given command
+with hash of given options.  Hash elements with unsupported options are
+silently ignored.
+
 =item $self->hashCmd(<cmd>, <opts>)
 
 Return a hash with one key for each option.  The value of the key is 1 if a
@@ -1071,7 +1128,7 @@ Return the option list, with the specified matching argument removed.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2002-2010 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2011 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

@@ -3,62 +3,74 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
+* SVN::S4 1.051 2011/01/02
+
+***  s4 info-switches now supports URL format for viewspecs.
+
+**** Fix 's4 scrub' underneath viewspecs.  [Joseph DErrico]
+
+**** Fix 's4 update {symlink}' with viewspec not updating.
+
+**** With 'co-under-co=no' disallow nested checkouts.  [Brian Hunter]
+
+**** Standardize internal debug messages.
+
 * SVN::S4 1.050 2010/10/04
 
-***	's4 add' no longer does fixprop by default.  Use a configuration file
-	to enable this behavior.
+***  's4 add' no longer does fixprop by default.  Use a configuration file
+     to enable this behavior.
 
 * SVN::S4 1.040 2010/09/30
 
-**	Add 's4 workpropdel, workpropget, workpropset, workproplist'.
+**   Add 's4 workpropdel, workpropget, workpropset, workproplist'.
 
-***	Viewspecs now allow ^ to refer to repo root.
+***  Viewspecs now allow ^ to refer to repo root.
 
 * SVN::S4 1.034 2010/07/09
 
-**	Support SVN 1.6.6.
+**   Support SVN 1.6.6.
 
 * SVN::S4 1.033 2010/02/25
 
-****	Fix Pod::Usage dependency, rt51024.
+**** Fix Pod::Usage dependency, rt51024.
 
 * SVN::S4 1.032 2009/05/08
 
-**	This package is now licensed under LGPL v3 and/or Artistic v2.0.
+**   This package is now licensed under LGPL v3 and/or Artistic v2.0.
 
-***	Add 's4 cat-or-mods'.
+***  Add 's4 cat-or-mods'.
 
 * SVN::S4 1.031 2008/09/29
 
-***	Add verbose messages to 's4 scrub'.  [Brian Cassell]
+***  Add verbose messages to 's4 scrub'.  [Brian Cassell]
 
-***	Recognize .gitignore files similar to .cvsignore files.
+***  Recognize .gitignore files similar to .cvsignore files.
 
 * SVN::S4 1.030 2008/03/10
 
-**	Update to support Subversion 1.4 clients.
+**   Update to support Subversion 1.4 clients.
 
-****	Fix s4 update of symlinks without directory names. [Mahesh Kumashikar]
+**** Fix s4 update of symlinks without directory names. [Mahesh Kumashikar]
 
 * SVN::S4 1.022 2008/01/10
 
-**	Added s4 quick-checkin command.
+**   Added s4 quick-checkin command.
 
 * SVN::S4 1.021 2007/12/05
 
-****	Backed out some unintended experimental changes in 1.020.
+**** Backed out some unintended experimental changes in 1.020.
 
 * SVN::S4 1.020 2007/12/03
 
-**	First major release to CPAN.
+**   First major release to CPAN.
 
 * SVN::S4 1.010 2007/03/08
 
-**	First external alpha release.
+**   First external alpha release.
 
 * SVN::S4 1.000 2006/09/12
 
-**	First code written.
+**   First code written.
 
 ----------------------------------------------------------------------
 DESCRIPTION: Documentation on change history for this package
@@ -66,7 +78,7 @@ DESCRIPTION: Documentation on change history for this package
 
 This uses outline mode in Emacs.  See C-h m [M-x describe-mode].
 
-Copyright 2006-2010 by Bryce Denney and Wilson Snyder.  This program is
+Copyright 2006-2011 by Bryce Denney and Wilson Snyder.  This program is
 free software; you can redistribute it and/or modify it under the terms of
 either the GNU General Public License Version 3 or the Perl Artistic
 License Version 2.0.

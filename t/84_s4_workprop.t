@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # DESCRIPTION: Perl ExtUtils: Type 'make test' to test this package
 #
-# Copyright 2002-2010 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2011 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
@@ -14,30 +14,23 @@ BEGIN { require "t/test_utils.pl"; }
 
 our $S4 = "${PERL} ../../s4";
 
-my $out;
-
 chdir "test_dir/trunk";
 
-$out = `${S4} workpropset testprop value`;
-print "---\n$out\n";
-is($out,'', 'workpropset');
+like_cmd("${S4} workpropset testprop value",
+	 qr/^$/);
 
-$out = `${S4} workpropget testprop`;
-print "---\n$out\n";
-like($out,qr/value/, 'workpropget');
+like_cmd("${S4} workpropget testprop",
+	 qr/value/);
 
-$out = `${S4} workproplist -v`;
-print "---\n$out\n";
-like($out,qr/testprop\n\s+value/, 'workproplist -v');
+like_cmd("${S4} workproplist -v",
+	 qr/testprop\n\s+value/);
 
-$out = `${S4} workproplist --xml -v`;
-print "---\n$out\n";
-like($out,qr/name=/, 'workproplist -xml');
+like_cmd("${S4} workproplist --xml -v",
+	 qr/name=/);
 
-$out = `${S4} workpropdel testprop`;
-print "---\n$out\n";
-is($out,'', 'workpropdel');
+like_cmd("${S4} workpropdel testprop",
+	 qr/^$/);
 
-$out = `${S4} workpropget testprop`;
-print "---\n$out\n";
-is($out,'', 'workpropget empty');
+like_cmd("${S4} workpropget testprop",
+	 qr/^$/);
+

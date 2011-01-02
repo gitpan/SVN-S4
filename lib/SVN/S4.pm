@@ -13,6 +13,7 @@ use SVN::Client;
 # Our stuff
 use SVN::S4::CatOrMods;
 use SVN::S4::Config;
+use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::FixProp;
 use SVN::S4::Getopt;
 use SVN::S4::Info;
@@ -20,16 +21,15 @@ use SVN::S4::Path;
 use SVN::S4::Update;
 use SVN::S4::ViewSpec;
 use SVN::S4::QuickCommit;
+use SVN::S4::Scrub;
 use SVN::S4::Snapshot;
-use SVN::S4::StrongRevert;
 use SVN::S4::WorkProp;
-use vars qw($Debug);
 use strict;
 
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -115,8 +115,8 @@ sub new {
     my $class = shift;
     my $self = {# Overridable by user
 		quiet => 0,
+		debug => is_debug,
 		dryrun => undef,
-		debug => $Debug,
 		revision => undef,  # default rev for viewspec operations
 		s4_binary => "s4",
 		svn_binary => "svn",   # overridden by command line or env variable
@@ -177,7 +177,7 @@ sub clean_filename {
     # Multiple slashes in pathname (foo//bar) works for many purposes,
     # but svn::client says:
     #   perl: subversion/libsvn_subr/path.c:113: svn_path_join: Assertion `is_canonical (base, blen)' failed.
-    $filename =~ s%//+%/%g;
+    $filename =~ s%(?<!:)//+%/%g;  # Doesn't replace :// URLs
     # Remove slash at end
     $filename =~ s%/$%%;
     return $filename;
@@ -186,6 +186,7 @@ sub clean_filename {
 sub abs_filename {
     my $self = shift;
     my $filename = $self->clean_filename(shift);
+    return $filename if !$self->is_file_local(filename=>$filename);  # Ignore URLs
     $filename = getcwd if $filename eq '.';
     $filename = getcwd."/".$filename if $filename !~ m%^/%;
     foreach (1..100) {
@@ -194,12 +195,13 @@ sub abs_filename {
 	# an arbitrary limit of calling readlink 100 times.
         my $try = readlink $filename;
 	last if (!defined $try);
-	print "replace filename $filename with readlink filename $try\n" if $self->debug;
+	DEBUG "replace filename $filename with readlink filename $try\n" if $self->debug;
 	# We need to allow a symlink of just "foo -> bar", note bar has no dir name
 	$filename =~ s!/[^/]*$!!;  # basedir(filename)
 	$filename = File::Spec->rel2abs($try,$filename);
-	print "    new filename $filename\n" if $self->debug;
+	DEBUG "    new filename $filename\n" if $self->debug;
     }
+    $filename =~ s!/$!! if $filename ne "/";   # Svn gets upset at trailing /'s
     return $filename;
 }
 
@@ -217,7 +219,7 @@ sub wait_for_existence {
 	# In theory, this should make NFS reread the directory
 	{ mkdir $parent, 0777; }
 	return 1 if (-d $params{path});
-	print "Waiting for $params{path} to appear from file server\n" if $self->debug;
+	DEBUG "Waiting for $params{path} to appear from file server\n" if $self->debug;
 	die "s4: %Error: after $max seconds, the directory $params{path} is still not present." if $_==$max;
 	sleep 1;
     }
@@ -231,7 +233,7 @@ sub run {
 	# or a reference to a list.
         @_ = @{$_[0]};
     }
-    print "+ '", join("' '",@_), "'\n" if $self->debug;
+    DEBUG "+ '", join("' '",@_), "'\n" if $self->debug;
     local $! = undef;
     system @_;
     my $status = $?; my $msgx = $!;
@@ -252,7 +254,9 @@ sub run {
 
 sub run_s4 {
     my $self = shift;
-    my @list = ($self->{s4_binary}, @_);
+    my @list = ($self->{s4_binary});
+    push @list, "--debugi", $self->debug if $self->debug;
+    push @list, @_;
     $self->run (@list);
 }
 
@@ -265,7 +269,7 @@ sub run_svn {
 sub hide_all_output {
     my $self = shift;
     if ($self->debug) {
-        print "hide_all_output: If I wasn't in debug mode, I would hide stdout and stderr now.\n";
+        DEBUG "hide_all_output: If I wasn't in debug mode, I would hide stdout and stderr now.\n";
 	return;
     }
     CORE::open(SAVEOUT, ">& STDOUT") or croak "%Error: Can't dup stdout, stopped";
@@ -278,7 +282,7 @@ sub hide_all_output {
 sub restore_all_output {
     my $self = shift;
     if ($self->debug) {
-        print "restore_all_output: If I wasn't in debug mode, I would restore stdout and stderr now.\n";
+        DEBUG "restore_all_output: If I wasn't in debug mode, I would restore stdout and stderr now.\n";
 	return;
     }
     # put STDOUT,STDERR back where they belong
@@ -295,7 +299,7 @@ sub read_viewspec_state {
     $self->hide_all_output();
     eval {
       our $VAR1;
-      print "Requiring file $file\n" if $self->debug;
+      DEBUG "Requiring file $file\n" if $self->debug;
       require $file;
       $self->{prev_state} = $VAR1;
     };
@@ -337,9 +341,9 @@ sub file_url {
     my %params = (#filename =>
                   assert_exists=>1,
 		  @_);
-    print "\tfile_url $params{filename}\n" if $Debug;
+    DEBUG "\tfile_url $params{filename}\n" if $self->debug;
     my $filename = $self->abs_filename($params{filename});
-    print "absolute filename = $filename\n" if $Debug;
+    DEBUG "absolute filename = $filename\n" if $self->debug;
     $self->open();
     return undef if $filename =~ m!\.old($|/)!;
     $self->hide_all_output();
@@ -353,7 +357,7 @@ sub file_url {
     if ($params{assert_exists} && $error) {
         die "s4: %Error: file_url: could not find url for path $filename";
     }
-    print "url is $url\n" if $self->debug;
+    DEBUG "url is $url\n" if $self->debug;
     return $url;
 }
 
@@ -362,23 +366,31 @@ sub file_root {
     if (!$self->{_root}) {
 	my %params = (#filename =>
 		      @_);
-	print "\tfile_root $params{filename}\n" if $Debug;
+	DEBUG "\tfile_root $params{filename}\n" if $self->debug;
 	my $filename = $self->abs_filename($params{filename});
-	print "absolute filename = $filename\n" if $Debug;
+	DEBUG "absolute filename = $filename\n" if $self->debug;
 	$self->open();
 	my $root;
 	$self->hide_all_output();
-	$self->client->info($filename, undef, undef,
+	$self->client->info($filename, undef,
+			    $self->is_file_local(filename=>$filename)?undef:'HEAD',
 			    sub {
 				my ($file, $info, $pool) = @_;
 				$root = $info->repos_root_URL;
 			    }, 0);
 	$self->restore_all_output();
 	$root or die "s4: %Error: No SVN root found for $filename\n";
-	print "\tfile_root $params{filename} -> $root\n" if $Debug;
+	DEBUG "\tfile_root $params{filename} -> $root\n" if $self->debug;
 	$self->{_root} = $root;
     }
     return $self->{_root};
+}
+
+sub is_file_local {
+    my $self = shift;
+    my %params = (#filename =>
+		  @_);
+    return ($params{filename} !~ m!://!);
 }
 
 sub is_file_personal {
@@ -387,7 +399,7 @@ sub is_file_personal {
 		  user => $ENV{USER},
 		  @_);
     # Is file owned by specified user?
-    print "\tsvn_file_personal $params{filename}\n" if $Debug;
+    DEBUG "\tsvn_file_personal $params{filename}\n" if $self->debug;
     my $filename = $self->clean_filename($params{filename});
     $self->open();
     my $status;
@@ -413,20 +425,19 @@ sub is_file_personal {
 
 # Test if file is in repository.
 # The only thing that's tricky about this is not printing an error
-# or crashing if the file is NOT present.  I run a system command
-# and redirect output to /dev/null.
+# or crashing if the file is NOT present.  We redirect output to /dev/null.
 sub is_file_in_repo {
     my $self = shift;
     my %params = (#url=>,
                   revision=>'HEAD',
                   @_);
     my $url = $params{url};
-    print "is_file_in_repo with url='$url'\n" if $self->debug;
+    DEBUG "is_file_in_repo with url='$url'\n" if $self->debug;
     $self->hide_all_output();
     my $exists = 0;
     eval {
         my $proplist = $self->client->proplist($url, $params{revision}, 0);
-	print "proplist returned, so the url must have existed\n" if $self->debug;
+	DEBUG "proplist returned, so the url must have existed\n" if $self->debug;
 	$exists = 1;
     };
     $self->restore_all_output();
@@ -454,7 +465,7 @@ sub rev_on_date {
 	die "s4: %Error: rev_on_date was called with a bad file or url: $params{url}";
     }
     $self->ensure_valid_rev_string ($date);
-    print "about to call revprop_list with url=$url rev=$date\n" if $self->debug;
+    DEBUG "about to call revprop_list with url=$url rev=$date\n" if $self->debug;
     # Concat with "" makes it into a string, if it's not.
     # gets around TypeError in method 'svn_client_revprop_list', argument 2
     my ($props,$rev) = $self->client->revprop_list($url."", $date, $self->pool);
@@ -514,7 +525,7 @@ sub void_url {
     my $self = shift;
     my %params = (#url=>,
                   @_);
-    print "void_url url=$params{url}\n" if $self->debug;
+    DEBUG "void_url url=$params{url}\n" if $self->debug;
     return $self->{void_url} if $self->{void_url};  # use cached copy
     my ($proto,$server,$path) = $params{url} =~ /(.*:\/{2,3})([^\/]+)(\/.*)/;
     die "s4: %Error: could not parse url $params{url}" if !defined $proto || !defined $server || !defined $path;
@@ -525,7 +536,7 @@ sub void_url {
         $pathbuild .= "/" if $pathpart ne '';
 	$pathbuild .= $pathpart;
 	my $url = "$pathbuild/void";
-	print "Try URL $url\n" if $self->debug;
+	DEBUG "Try URL $url\n" if $self->debug;
 	if ($self->is_file_in_repo(url=>$url)) {
 	    $self->{void_url} = $url;  # found it! cache for next time.
 	    return $url;                # I'm just gonna assume it's a directory
@@ -558,11 +569,12 @@ sub propget_string {
     my %params = (#filename =>
 		  #propname =>
 		  dryrun => $self->{dryrun},
+		  debug => $self->debug,
 		  quiet => $self->{quiet},
 		  @_);
     # Return property value for given file/propname
     my $filename = $self->clean_filename($params{filename});
-    print "\tsvn_propget $filename  $params{propname}\n" if $Debug;
+    DEBUG "\tsvn_propget $filename  $params{propname}\n" if $self->debug;
 
     $self->open();
     my $pl = $self->client->proplist($filename, undef, 0);
@@ -638,7 +650,7 @@ Create a new SVN::S4 object.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2002-2010 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2011 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
@@ -657,8 +669,8 @@ L<SVN::S4::Getopt>,
 L<SVN::S4::Info>,
 L<SVN::S4::Path>,
 L<SVN::S4::QuickCommit>,
+L<SVN::S4::Scrub>,
 L<SVN::S4::Snapshot>,
-L<SVN::S4::StrongRevert>,
 L<SVN::S4::Update>,
 L<SVN::S4::ViewSpec>
 

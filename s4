@@ -21,18 +21,18 @@ use Carp;
 use strict;
 
 use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug debug_option);
 
-use vars qw ($Debug $VERSION);
+use vars qw ($VERSION);
 
 #======================================================================
 # main
 
-$VERSION = '1.050';
+$VERSION = '1.051';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
 
-$Debug = 0;
 our $Opt_Cmd;
 our @Opt_CmdParams = ();
 our @Opt_CmdParamsEnd = ();   # options to put at the end
@@ -55,7 +55,8 @@ Getopt::Long::config ("pass_through", "no_auto_abbrev");
 
 if (! GetOptions (
 		  "help"	=> \&usage,
-		  "debug"	=> \&debug,
+		  "debug"	=> \&debug_option,
+		  "debugi=s"	=> \&debug_option,
 		  "svn=s"	=> \$Opt_SvnBinary,
 		  "quiet"	=> \&global_option_no_arg,
 		  "version"	=> \&global_option_no_arg,
@@ -71,18 +72,18 @@ $Opt_Cmd = '' if !defined $Opt_Cmd;  # to avoid perl warnings about undef
 # svn subcommand.
 push @Opt_CmdParams, @Opt_CmdParamsEnd;
 undef @Opt_CmdParamsEnd;
-print "Cmd: $Opt_Cmd\n" if $Debug;
-print "  Pos: '",join("' '",@Opt_CmdParams),"'\n" if $Debug;
+DEBUG "Cmd: $Opt_Cmd\n" if is_debug;
+DEBUG "  Pos: '",join("' '",@Opt_CmdParams),"'\n" if is_debug;
 
 # Create one SVN::S4 object
 our %opts = $SvnOpt->hashCmd($Opt_Cmd, @Opt_CmdParams);
 our $s4 = new SVN::S4(SVN::S4::args_to_params(%opts));	# Process --quiet etc
 $s4->{svn_binary} = $Opt_SvnBinary || $ENV{'S4_SVN'} || "svn";
-print "Using '$s4->{svn_binary}' for subversion commands\n" if $Debug;
+DEBUG "Using '$s4->{svn_binary}' for subversion commands\n" if is_debug;
 $s4->{s4_binary} = $0;
-print "Using '$s4->{s4_binary}' for s4 commands\n" if $Debug;
+DEBUG "Using '$s4->{s4_binary}' for s4 commands\n" if is_debug;
 
-print "opts=", Dumper(\%opts), "\n" if $Debug;
+DEBUG "opts=", Dumper(\%opts), "\n" if is_debug>=9;
 
 if ($Opt_Cmd eq '') {
     # in svn, a few things work even with no subcommand
@@ -146,11 +147,6 @@ sub usage {
     exit (1);
 }
 
-sub debug {
-    $SVN::S4::Debug = 1;
-    $Debug = 1;
-}
-
 sub global_option_no_arg {
     my $param = shift;
     if ($param eq 'version') {
@@ -201,12 +197,12 @@ sub cmd_svn {
 
 sub raw_svn_command {
     if ($s4->debug) {
-	print "Building raw command from:\n";
-	print "  svn_binary = $s4->{svn_binary}\n";
-	print "  opt_cmd = $Opt_Cmd\n";
-	print "  opt_cmdparams = ", join(' ', @Opt_CmdParams), "\n";
-	print "But not using:\n";
-	print "  opts = ", Dumper(\%opts), "\n";
+	DEBUG "Building raw command from:\n";
+	DEBUG "  svn_binary = $s4->{svn_binary}\n";
+	DEBUG "  opt_cmd = $Opt_Cmd\n";
+	DEBUG "  opt_cmdparams = ", join(' ', @Opt_CmdParams), "\n";
+	DEBUG "But not using:\n";
+	DEBUG "  opts = ", Dumper(\%opts), "\n";
     }
     my @cmd = ($s4->{svn_binary});
     push @cmd, $Opt_Cmd;
@@ -215,7 +211,7 @@ sub raw_svn_command {
 }
 
 sub cmd_add {
-    print "cmd_add ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_add ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     #Ignore: !$opts{unknown} or die "%Error: s4 add: Unknown argument: $opts{unknown}[0]\n";
     @Opt_CmdParams = $SvnOpt->stripOneArg('--raw',@Opt_CmdParams);
     @Opt_CmdParams = $SvnOpt->stripOneArg('--fixprop',@Opt_CmdParams);
@@ -237,7 +233,7 @@ sub cmd_add {
 }
 
 sub cmd_cat_or_mods {
-    print "cmd_cat_or_mods ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_cat_or_mods ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 cat-or-mods: Unknown argument: $opts{unknown}[0]\n";
 
     $opts{path} or die "%Error: s4 cat-or-mods: File path is required\n";
@@ -247,7 +243,7 @@ sub cmd_cat_or_mods {
 }
 
 sub cmd_fixprop {
-    print "cmd_fixprop ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_fixprop ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 fixprop: Unknown argument: $opts{unknown}[0]\n";
 
     $opts{path} or die "%Error: s4 fixprop: File path is required\n";
@@ -269,17 +265,17 @@ sub cmd_info_switches {
 }
 
 sub cmd_update {
-    print "cmd_update ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_update ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 update: Unknown argument: $opts{unknown}[0]\n";
     # If no paths specified, update the current directory.
     $s4->update (revision=>$opts{revision}[0], paths=>$opts{path},
-      fallback_cmd=>raw_svn_command());
+		 fallback_cmd=>raw_svn_command());
 }
 
 sub cmd_switch {
-    print "cmd_switch ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_switch ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 switch: Unknown argument: $opts{unknown}[0]\n";
-    print "  opts = ", Dumper(\%opts), "\n" if $Debug;
+    DEBUG "  opts = ", Dumper(\%opts), "\n" if is_debug;
     # Goal: Add ability to create switchpoints.
     # Use standard svn if they used "--relocate" syntax.
     if ($opts{'--relocate'}) {
@@ -313,14 +309,14 @@ sub cmd_switch {
         my $candidate = File::Spec->catdir (@basedirs);
 	last if ($candidate eq '/');  # please don't touch the root!
 	$candidate = "." if length $candidate < 1;
-	print "Is $candidate a working copy?\n" if $Debug;
+	DEBUG "Is $candidate a working copy?\n" if is_debug;
 	if (-d $candidate && -d "$candidate/.svn") {
 	    $basedir = $candidate;
 	    last;
 	}
     }
     if (!defined $basedir) {
-        print "Cannot find working copy at any point above $path. Run normal command.\n" if $Debug;
+        DEBUG "Cannot find working copy at any point above $path. Run normal command.\n" if is_debug;
         cmd_svn();
 	$s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
 	return check_viewspec_after_svn_cmd (path=>$path, revision=>$opts{revision}[0]);
@@ -345,13 +341,13 @@ sub check_viewspec_after_svn_cmd {
     my $viewspec = "$path/" . $s4->{viewspec_file};
     my $found_viewspec = (-d $path && -f $viewspec);
     if (!$found_viewspec) {
-        print "after switch, there is no viewspec. done.\n" if $s4->debug;
+        DEBUG "after switch, there is no viewspec. done.\n" if $s4->debug;
         return;
     }
     my $rev = $params{revision};
     $rev = $s4->which_rev (revision=>$rev, path=>$path) if !$rev;
-    print "Using revision $rev for all viewspec operations\n" if $s4->debug;
-    print "Parse the viewspec file $viewspec\n" if $s4->debug;
+    DEBUG "Using revision $rev for all viewspec operations\n" if $s4->debug;
+    DEBUG "Parse the viewspec file $viewspec\n" if $s4->debug;
     $s4->parse_viewspec (filename=>$viewspec, revision=>$rev);
     # Test to see if a normal update will suffice, since it is a whole lot faster
     # than a bunch of individual updates.  For every successful checkout/update
@@ -368,7 +364,7 @@ sub check_viewspec_after_svn_cmd {
 }
 
 sub cmd_checkout {
-    print "cmd_checkout ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_checkout ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 checkout: Unknown argument: $opts{unknown}[0]\n";
     # The documentation for svn checkout says "checkout URL... [PATH]".
     # I'm only going to support one URL here, e.g. "checkout URL [PATH]".
@@ -388,14 +384,15 @@ sub cmd_checkout {
 	$path =~ s/.*\///;
     }
     $s4->checkout (revision=>$opts{revision}[0],
-      url=>$url, path=>$path, fallback_cmd=>raw_svn_command());
+		   url=>$url, path=>$path,
+		   fallback_cmd=>raw_svn_command());
 }
 
 # Usage: s4 quick_commit PATH
 sub cmd_quick_commit {
-    print "cmd_quick_commit ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_quick_commit ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 quick_commit: Unknown argument: $opts{unknown}[0]\n";
-    print "opts=",Dumper(\%opts), "\n" if $Debug;
+    DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $path = $opts{path}[0];
     $path = "." if !defined $path;
     $s4->quick_commit (path => $path,
@@ -407,9 +404,9 @@ sub cmd_quick_commit {
 
 # Usage: s4 snapshot PATH
 sub cmd_snapshot {
-    print "cmd_snapshot ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_snapshot ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 snapshot: Unknown argument: $opts{unknown}[0]\n";
-    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $path = $opts{path}[0];
     $path = "." if !defined $path;
     my $no_ignore = $opts{'--no-ignore'} || 0;
@@ -418,51 +415,51 @@ sub cmd_snapshot {
 
 # Usage: s4 scrub PATH
 sub cmd_scrub {
-    print "cmd_scrub ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_scrub ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 scrub: Unknown argument: $opts{unknown}[0]\n";
-    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $path = $opts{path}[0];
     if (!defined $path) {
 	print "%Error: s4 scrub requires the path of the area to scrub.\n";
 	die "%Error: s4 scrub: Please read the help messages very carefully before using scrub!";
     }
     ###$path = "." if !defined $path;  # make them type it
-    $s4->strong_revert (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0],
-			verbose=>(!defined $opts{'--noverbose'}));
+    $s4->scrub (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0],
+		verbose=>(!defined $opts{'--noverbose'}));
     check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
 }
 
 sub cmd_workpropdel {
-    print "cmd_workpropdel ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_workpropdel ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 workpropdel: Unknown argument: $opts{unknown}[0]\n";
-    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $propname = $opts{propname}[0];
     (defined $propname) or die "%Error: s4 workpropdel requires the property name\n";
     $s4->workpropdel (propname=>$propname);
 }
 
 sub cmd_workpropget {
-    print "cmd_workpropget ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_workpropget ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 workpropget: Unknown argument: $opts{unknown}[0]\n";
-    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $propname = $opts{propname}[0];
     (defined $propname) or die "%Error: s4 workpropget requires the property name\n";
     $s4->workpropget (propname=>$propname, print=>1);
 }
 
 sub cmd_workproplist {
-    print "cmd_workpropget ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_workpropget ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 workpropget: Unknown argument: $opts{unknown}[0]\n";
-    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     $s4->workproplist (print=>1,
 		       verbose=>$opts{'-v'},
 		       xml=>$opts{'--xml'});
 }
 
 sub cmd_workpropset {
-    print "cmd_workpropset ",join(' ',@Opt_CmdParams),"\n"  if $Debug;
+    DEBUG "cmd_workpropset ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 workpropset: Unknown argument: $opts{unknown}[0]\n";
-    #print "opts=",Dumper(\%opts), "\n" if $Debug;
+    #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $propname = $opts{propname}[0];
     my $propval = $opts{propval}[0];
     (defined $propname) or die "%Error: s4 workpropset requires the property name\n";
@@ -624,8 +621,9 @@ Prints a summary of all Subversion and S4 commands.
 
 =head2 info-switches I<path>
 
-Prints a non-recursive "svn info" at the path specified, plus every switch
-point under the path.
+Given a working file path, prints a non-recursive "svn info" at the path
+specified, plus every switch point under the path.  Given an URL prints the
+info on any views underneath that URL.
 
 =head2 quick-commit|qci PATH
 
@@ -815,6 +813,11 @@ The following svn config file options are added by s4.
 If yes, an "add" command will also do a fixprop.  Note this defaulted to
 true prior to version 1.041.
 
+=item [s4] co-under-co = no
+
+If no, a "checkout" command will not be allowed when inside an existing
+checkout.
+
 =back
 
 =head1 ENVIRONMENT
@@ -848,7 +851,7 @@ newer versions will probably break.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Bryce Denney and Wilson Snyder.  This package is
+Copyright 2005-2011 by Bryce Denney and Wilson Snyder.  This package is
 free software; you can redistribute it and/or modify it under the terms of
 either the GNU Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

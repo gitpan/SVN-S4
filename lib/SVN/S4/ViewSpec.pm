@@ -4,7 +4,6 @@
 package SVN::S4::ViewSpec;
 require 5.006_001;
 
-use SVN::S4;
 use strict;
 use Carp;
 use IO::Dir;
@@ -13,9 +12,11 @@ use Cwd;
 use Digest::MD5;
 use vars qw($AUTOLOAD);
 
+use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 our $Info = 1;
 
 
@@ -28,32 +29,19 @@ our $Info = 1;
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 our @list_actions;
-
-sub vsdebug {
-    if ($SVN::S4::Debug) {
-        my $string = shift;
-	print "s4: $string\n";
-    }
-}
-
-sub info {
-    if ($Info) {
-        my $string = shift;
-	print "s4: $string\n";
-    }
-}
 
 sub viewspec_hash {
     my $self = shift;
     my $text_to_hash = "";
-    foreach (@list_actions) {
+    foreach (@{$self->{vs_actions}}) {
         $text_to_hash .= "$_->{cmd} $_->{url} $_->{dir}\n";
 	# just omit rev.
     }
     my $viewspec_hash = Digest::MD5::md5_hex($text_to_hash);
-    #print "s4: viewspec is $viewspec_hash\n";
+    #DEBUG "s4: viewspec is $viewspec_hash\n";
     return $viewspec_hash;
 }
 
@@ -66,11 +54,20 @@ sub viewspec_changed {
     if (!defined $self->{prev_state}) { return 1; } # if not found, return true.
     my $oldhash = $self->{prev_state}->{viewspec_hash} || "not found";
     if (!defined $oldhash) { return 1; } # if not found, return true.
-    print "s4: Compare hash '$vshash' against old '$oldhash'\n" if $self->debug;
+    DEBUG "s4: Compare hash '$vshash' against old '$oldhash'\n" if $self->debug;
     return ($vshash ne $oldhash);
 }
 
 sub parse_viewspec {
+    my $self = shift;
+    my %params = (#filename=>,
+		  #revision=>,
+                  @_);
+    $self->{vs_actions} = [];
+    $self->_parse_viewspec_recurse(%params);
+}
+
+sub _parse_viewspec_recurse {
     my $self = shift;
     my %params = (#filename=>,
 		  #revision=>,
@@ -83,8 +80,8 @@ sub parse_viewspec {
     # Remember the top level viewspec file. When doing an include, the included
     # file is relative to the top level one.
     $self->{viewspec_path} = $params{filename} if !$self->{viewspec_path};
-    print "s4: params{revision} = $params{revision}\n" if $self->debug && $params{revision};
-    print "s4: now my revision variable is $self->{revision}\n" if $self->debug && $self->{revision};
+    DEBUG "s4: params{revision} = $params{revision}\n" if $self->debug && $params{revision};
+    DEBUG "s4: now my revision variable is $self->{revision}\n" if $self->debug && $self->{revision};
     my $fh = new IO::File;
     if ($fn =~ m%://%) {
         # treat it as an svn url
@@ -98,7 +95,7 @@ sub parse_viewspec {
 	    pop @dirs;
 	    push @dirs, File::Spec->splitdir ($fn);
 	    my $candidate = File::Spec->catdir (@dirs);
-	    print "s4: Making $fn relative to $self->{viewspec_path}. candidate is $candidate\n" if $self->debug;
+	    DEBUG "s4: Making $fn relative to $self->{viewspec_path}. candidate is $candidate\n" if $self->debug;
 	    # if the file exists, accept the $candidate
 	    $fn = $candidate if (-f $candidate);
 	}
@@ -109,27 +106,27 @@ sub parse_viewspec {
 	s/^\s+//;      # remove leading space
 	s/\s+$//;      # remove trailing space
 	next if /^$/;  # remove empty lines
-	#vsdebug ("viewspec: $_");
-	$self->parse_viewspec_line ($fn, $_);
+	#DEBUG ("viewspec: $_\n") if $self->debug;
+	$self->_parse_viewspec_line ($fn, $_);
     }
     $fh->close;
 }
 
-sub parse_viewspec_line {
+sub _parse_viewspec_line {
     my $self = shift;
     my $filename = shift;
     my $line = shift;
     my @args = split(/\s+/, $line);
-    $self->expand_viewspec_vars (\@args);
+    $self->_expand_viewspec_vars (\@args);
     my $cmd = shift @args;
     if ($cmd eq 'view') {
-        $self->viewspec_cmd_view (@args);
+        $self->_viewspec_cmd_view (@args);
     } elsif ($cmd eq 'unview') {
-        $self->viewspec_cmd_unview (@args);
+        $self->_viewspec_cmd_unview (@args);
     } elsif ($cmd eq 'include') {
-        $self->viewspec_cmd_include (@args);
+        $self->_viewspec_cmd_include (@args);
     } elsif ($cmd eq 'set') {
-        $self->viewspec_cmd_set (@args);
+        $self->_viewspec_cmd_set (@args);
     } else {
 	if ($line =~ /(>>>>>>|<<<<<<|======)/) {
 	    die "s4: %Error: $filename:$.: It looks like Project.viewspec has SVN conflict markers in it\n";
@@ -138,24 +135,24 @@ sub parse_viewspec_line {
     }
 }
 
-sub expand_viewspec_vars {
+sub _expand_viewspec_vars {
     my $self = shift;
     my $listref = shift;
     my %vars;
     for (my $i=0; $i<=$#$listref; $i++) {
 	my $foo;
-        #vsdebug "before substitution: $listref->[$i]";
+        #DEBUG "before substitution: $listref->[$i]\n" if $self->debug;
 	$listref->[$i] =~ s/\$([A-Za-z0-9_]+)/$self->{viewspec_vars}->{$1}/g;
-	#vsdebug "after substitution: $listref->[$i]";
+	#DEBUG "after substitution: $listref->[$i]\n" if $self->debug;
     }
 }
 
-sub viewspec_cmd_view {
+sub _viewspec_cmd_view {
     my $self = shift;
     my ($url, $dir, $revtype, $rev) = @_;
     $revtype = "" if !defined $revtype;
     $rev = "" if !defined $rev;
-    vsdebug "cmd_view: url=$url  dir=$dir  revtype=$revtype  rev=$rev";
+    DEBUG "_viewspec_cmd_view: url=$url  dir=$dir  revtype=$revtype  rev=$rev\n" if $self->debug;
     if (!defined $url || !defined $dir) {
         die "s4: %Error: view command requires URL and DIR argument\n";
     }
@@ -163,7 +160,7 @@ sub viewspec_cmd_view {
     if ($url =~ s!^\^!!) {
 	my $root = $self->file_root(filename=>$self->{viewspec_path});
 	$url = $root.$url;
-	vsdebug "expanded url to $url";
+	DEBUG "expanded url to $url\n" if $self->debug;
     }
     # check syntax of revtype,rev
     if ($revtype eq 'rev') {
@@ -179,7 +176,7 @@ sub viewspec_cmd_view {
     }
     $self->ensure_valid_rev_string($rev);
     # if there is already an action on this directory, abort.
-    foreach (@list_actions) {
+    foreach (@{$self->{vs_actions}}) {
         if ($dir eq $_->{dir}) {
 	    die "s4: %Error: In Project.viewspec, one view line collides with a previous one for directory '$dir'. You must either remove one of the view commands or add an 'unview' command before it.";
 	}
@@ -189,43 +186,43 @@ sub viewspec_cmd_view {
     $action->{url} = $url;
     $action->{dir} = $dir;
     $action->{rev} = $rev;
-    push @list_actions, $action;
+    push @{$self->{vs_actions}}, $action;
 }
 
-sub viewspec_cmd_unview {
+sub _viewspec_cmd_unview {
     my $self = shift;
     my ($dir) = @_;
-    vsdebug "viewspec_cmd_unview: dir=$dir";
+    DEBUG "_viewspec_cmd_unview: dir=$dir\n" if $self->debug;
     my $ndel = 0;
-    for (my $i=0; $i <= $#list_actions; $i++) {
-	my $cmd = $list_actions[$i]->{cmd};
-	my $actdir = $list_actions[$i]->{dir};
-	vsdebug "checking $cmd on $actdir";
+    for (my $i=0; $i <= $#{$self->{vs_actions}}; $i++) {
+	my $cmd = $self->{vs_actions}[$i]->{cmd};
+	my $actdir = $self->{vs_actions}[$i]->{dir};
+	DEBUG "checking $cmd on $actdir\n" if $self->debug;
         if ($cmd eq 'switch' && $actdir =~ /^$dir/) {
-	    vsdebug "deleting action=$cmd on dir=$dir";
-	    #vsdebug "before deleting, list was " . Dumper(\@list_actions);
-	    splice (@list_actions, $i, 1);
-	    #vsdebug "after deleting, list was " . Dumper(\@list_actions);
+	    DEBUG "deleting action=$cmd on dir=$dir\n" if $self->debug;
+	    #DEBUG "before deleting, list was " . Dumper($vs_actions) if $self->debug;
+	    splice (@{$self->{vs_actions}}, $i, 1);
+	    #DEBUG "after deleting, list was " . Dumper($vs_actions) if $self->debug;
 	    $ndel++;
 	}
     }
 }
 
-sub viewspec_cmd_include {
+sub _viewspec_cmd_include {
     my $self = shift;
     my ($file) = @_;
-    vsdebug "viewspec_cmd_include $file";
+    DEBUG "_viewspec_cmd_include $file\n" if $self->debug;
     $self->{parse_viewspec_include_depth}++;
     die "s4: %Error: Excessive viewspec includes. Is this infinite recursion?"
          if $self->{parse_viewspec_include_depth} > 100;
-    $self->parse_viewspec (filename=>$file);
+    $self->_parse_viewspec_recurse (filename=>$file);
     $self->{parse_viewspec_include_depth}--;
 }
 
-sub viewspec_cmd_set {
+sub _viewspec_cmd_set {
     my $self = shift;
     my ($var,$value) = @_;
-    vsdebug "viewspec_cmd_set $var = $value";
+    DEBUG "_viewspec_cmd_set $var = $value\n" if $self->debug;
     $self->{viewspec_vars}->{$var} = $value;
 }
 
@@ -236,7 +233,7 @@ sub viewspec_cmd_set {
 sub viewspec_compare_rev {
     my $self = shift;
     my ($rev_to_match) = @_;
-    foreach my $action (@list_actions) {
+    foreach my $action (@{$self->{vs_actions}}) {
 	my $rev = $action->{rev};
 	if ($rev ne $rev_to_match) {
 	    return undef; # found inconsistent revs, return false
@@ -245,27 +242,24 @@ sub viewspec_compare_rev {
     return 1;  # all revs were the same, return true
 }
 
-sub sort_by_dir {
-    return $a->{dir} cmp $b->{dir};
-}
-
 sub apply_viewspec {
     my $self = shift;
     my %params = (#path=>,
                   @_);
-    vsdebug "revision is $self->{revision}" if $self->{revision};
+    DEBUG "revision is $self->{revision}\n" if $self->{revision} && $self->debug;
     $self->{viewspec_managed_switches} = [];  # ref to empty array
     my $base_uuid;
-    foreach my $action (sort sort_by_dir @list_actions) {
+    foreach my $action (sort {$a->{dir} cmp $b->{dir}}
+			@{$self->{vs_actions}}) {
 	my $dbg = "Action: ";
         foreach my $key (sort keys %$action) {
 	    $dbg .= "$key=$action->{$key} ";
 	}
-	vsdebug ($dbg);
+	DEBUG "$dbg\n" if $self->debug;
 	unless ($base_uuid) {
 	    my $base_url = $self->file_url (filename=>$params{path});
 	    $base_uuid = $self->client->uuid_from_url ($base_url);
-	    print "Base repository UUID is $base_uuid\n" if $self->debug;
+	    DEBUG "Base repository UUID is $base_uuid\n" if $self->debug;
 	}
 	my $cmd = "";
 	if ($action->{cmd} eq 'switch') {
@@ -274,9 +268,9 @@ sub apply_viewspec {
 	    if (!-e "$params{path}/$reldir") {
 	        # Directory does not exist yet. Use the voids trick to create
 		# a versioned directory there that is switched to an empty dir.
-		print "s4: Creating empty directory to switch into: $reldir\n" if $self->debug;
+		DEBUG "s4: Creating empty directory to switch into: $reldir\n" if $self->debug;
 		my $basedir = $params{path};
-		$self->create_switchpoint_hierarchical($basedir, $reldir);
+		$self->_create_switchpoint_hierarchical($basedir, $reldir);
 	    }
 	    my $rev = $action->{rev};
 	    if ($rev eq 'HEAD') {
@@ -317,30 +311,30 @@ sub apply_viewspec {
     }
     # Look for any switch points that S4 __used to__ maintain, but no longer does.
     # Undo those switch points, if possible.
-    $self->undo_switches (basepath=>$params{path});
+    $self->_undo_switches (basepath=>$params{path});
     # Set viewspec hash in the S4 object.  The caller MAY decide to save the
     # state by calling $self->save_viewspec_state, or not.
     $self->{viewspec_hash} = $self->viewspec_hash;
 }
 
-sub undo_switches {
+sub _undo_switches {
     my $self = shift;
     my %params = (#basepath=>,
                   @_);
     # Find the list of switchpoints that S4 created
     # If it can't be found, just return.
     if (!$self->{prev_state}) {
-        print "s4: undo_switches cannot find prev_state, giving up\n" if $self->debug;
+        DEBUG "s4: _undo_switches cannot find prev_state, giving up\n" if $self->debug;
 	return;
     }
     if (!$self->{prev_state}->{viewspec_managed_switches}) {
-        print "s4: undo_switches cannot find previous list of viewspec_managed_switches, giving up\n" if $self->debug;
+        DEBUG "s4: _undo_switches cannot find previous list of viewspec_managed_switches, giving up\n" if $self->debug;
 	return;
     }
     my @prevlist = sort @{$self->{prev_state}->{viewspec_managed_switches}};
     my @thislist = sort @{$self->{viewspec_managed_switches}};
-    print "s4: prevlist: ", join(' ',@prevlist), "\n" if $self->debug;
-    print "s4: thislist: ", join(' ',@thislist), "\n" if $self->debug;
+    DEBUG "s4: prevlist: ", join(' ',@prevlist), "\n" if $self->debug;
+    DEBUG "s4: thislist: ", join(' ',@thislist), "\n" if $self->debug;
     foreach my $dir (@prevlist) {
 	# I'm only interested in directories that were in @prevlist but
 	# are not in @thislist.  If dir is in both lists, quit.
@@ -350,16 +344,16 @@ sub undo_switches {
 	    # with $dir, in other words there is a mountpoint underneath
 	    # this one.  We can't remove the dir, but leave it in the
 	    # state file, so we can remove it when we have the chance.
-	    print "s4: Remember that we manage $dir\n" if $self->debug;
+	    DEBUG "s4: Remember that we manage $dir\n" if $self->debug;
 	    push @{$self->{viewspec_managed_switches}}, $dir;
 	    next;
 	}
 	print "s4: Remove unused switchpoint $dir\n";
-	$self->remove_switchpoint (dir=>$dir, basepath=>$params{basepath});
+	$self->_remove_switchpoint (dir=>$dir, basepath=>$params{basepath});
     }
 }
 
-sub remove_switchpoint {
+sub _remove_switchpoint {
     my $self = shift;
     my %params = (#basepath=>,
 		  #dir=>,
@@ -374,7 +368,7 @@ sub remove_switchpoint {
     my $path = "$params{basepath}/$params{dir}";
     my $abspath = $self->abs_filename($path);
     if (! -d $abspath) {
-        print "Switchpoint $path has already been removed.\n" if $self->debug;
+        DEBUG "Switchpoint $path has already been removed.\n" if $self->debug;
 	return;
     }
     my $url = $self->file_url(filename=>$path);
@@ -383,27 +377,27 @@ sub remove_switchpoint {
     $self->run($cmd);
     # Is it totally empty?
     my $status_items = 0;
-    print "s4: Checking if $path is completely empty\n" if $self->debug;
+    DEBUG "s4: Checking if $path is completely empty\n" if $self->debug;
     my $stat = $self->client->status
-	($abspath,			# path
+	($abspath,			# canonical path
 	 "WORKING",			# revision
-	 sub { $status_items++; print Dumper(@_) if $self->debug; }, 	# status func
+	 sub { $status_items++; DEBUG Dumper(@_) if $self->debug; }, 	# status func
 	 1,				# recursive
 	 1,				# get_all
 	 0,				# update
 	 1,				# no_ignore
      );
-     print "status returned $status_items item(s)\n" if $self->debug;
+     DEBUG "status returned $status_items item(s)\n" if $self->debug;
      # For a totally empty directory, status returns just one thing: the
      # directory itself.
      if ($status_items==1) {
-	print "s4: Removing $path from working area\n" if $self->debug;
+	DEBUG "s4: Removing $path from working area\n" if $self->debug;
 	 # Do it gently to reduce chance of wiping out. Only use the big hammer on
 	 # the .svn directory itself.  This may "fail" because of leftover .nfs crap;
 	 # then what's the right answer?
          $self->run ("rm -rf $path/.svn");
          $self->run ("rmdir $path");
-	 print "s4: running $self->{svn_binary} update -r $self->{revision} on $abspath\n" if $self->debug;
+	 DEBUG "s4: running $self->{svn_binary} update -r $self->{revision} on $abspath\n" if $self->debug;
 	 $self->run ("$self->{svn_binary} up -N --revision $self->{revision} $path");
      } else {
          print "s4: Ignoring obsolete switchpoint $path because there are still files under it.\n";
@@ -412,7 +406,7 @@ sub remove_switchpoint {
      }
 }
 
-sub create_switchpoint_hierarchical {
+sub _create_switchpoint_hierarchical {
     my $self = shift;
     my ($basedir,$reldir) = @_;
     my $path = "";
@@ -420,9 +414,9 @@ sub create_switchpoint_hierarchical {
     for (my $i=0; $i <= $#dirparts; $i++) {
 	my $dirpart = $dirparts[$i];
 	my $last_time_through = ($i == $#dirparts);
-	print "s4: does '$dirpart' exist in $basedir? if not, make it\n" if $self->debug;
+	DEBUG "s4: does '$dirpart' exist in $basedir? if not, make it\n" if $self->debug;
 	if (! -e "$basedir/$dirpart") {
-	    $self->create_switchpoint ($basedir,$dirpart);
+	    $self->_create_switchpoint ($basedir,$dirpart);
 	    if (1) {  # Was $last_time_through, but fails for one level deep views
 		# Q: Why is voidurl in a loop?  It takes 1-2 seconds!?
 		# A: I don't want to compute void_url unless it is
@@ -439,10 +433,10 @@ sub create_switchpoint_hierarchical {
     }
 }
 
-sub create_switchpoint {
+sub _create_switchpoint {
     my $self = shift;
     my ($basedir,$targetdir) = @_;
-    print "s4: create_switchpoint $targetdir from basedir $basedir\n" if $self->debug;
+    DEBUG "s4: create_switchpoint $targetdir from basedir $basedir\n" if $self->debug;
     # Ok, we're going to do something really bizarre to work around a
     # svn limitation.  We want to create an svn switched directory, even if
     # there is no such directory in our working area.  Normally SVN does not
@@ -508,6 +502,17 @@ sub create_switchpoint {
     rename($newfile, $entries_file) or die "s4: Internal-%Error: $! on 'mv $newfile $entries_file',";
 }
 
+sub viewspec_urls {
+    my $self = shift;
+    # Return all URLs mentioned in this action set, for info-switches
+    my %urls;
+    foreach my $action (@{$self->{vs_actions}}) {
+	next if !$action->{url};
+	$urls{$action->{url}} = 1;
+    }
+    return sort keys %urls;
+}
+
 ######################################################################
 ### Package return
 package SVN::S4::ViewSpec;
@@ -543,8 +548,6 @@ For viewspec documentation, see L<s4>.
 
 Parse_viewspec reads the file specified by FILENAME, and builds up
 a list of svn actions that are required to build the working area.
-The actions are stored in @list_actions, and each one is a hash
-containing a command, a directory, etc.
 
 The revision parameter is used as the default revision number for
 all svn operations, unless the viewspec file has a "rev NUM" clause
@@ -552,9 +555,8 @@ that overrides the default.
 
 =item $s4->apply_viewspec
 
-For each of the svn actions in @list_actions, perform the actions.
-An example of an action is to run svn switch on the Foo directory
-the the URL Bar at revision 50.
+For each of the svn actions, perform the actions.  An example of an action
+is to run svn switch on the Foo directory the the URL Bar at revision 50.
 
 =back
 
@@ -562,7 +564,7 @@ the the URL Bar at revision 50.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Bryce Denney.  This package is free software; you
+Copyright 2005-2011 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

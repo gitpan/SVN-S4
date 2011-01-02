@@ -5,6 +5,7 @@ package SVN::S4::FixProp;
 require 5.006_001;
 
 use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 use strict;
 use Carp;
 use IO::Dir;
@@ -14,7 +15,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
@@ -66,6 +67,7 @@ sub file_has_keywords {
 # OVERLOADS of S4 object
 package SVN::S4;
 use Cwd qw(getcwd);
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 sub fixprops {
     my $self = shift;
@@ -87,7 +89,7 @@ sub _fixprops_recurse {
 
     if (-d $filename) {
 	my $dir = $filename;
-	print "In $dir\n" if $self->debug;
+	DEBUG "In $dir\n" if $self->debug;
 	if (!-r "$dir/.svn") {
 	    # silently ignore a non a subversion directory
 	} else {
@@ -114,7 +116,7 @@ sub _fixprops_recurse {
 	# File
 	if ($filename =~ m!^(.*)/(\.cvsignore|\.gitignore)$!) {
 	    my $dir = $1;
-	    print ".cvsignore check $dir\n" if $self->debug;
+	    DEBUG ".cvsignore check $dir\n" if $self->debug;
 	    if ($self->file_url(filename=>$dir)) {
 		$self->_fixprops_add_ignore($dir);
 	    }
@@ -201,7 +203,7 @@ keywords that need repair.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Wilson Snyder.  This package is free software; you
+Copyright 2005-2011 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

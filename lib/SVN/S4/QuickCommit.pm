@@ -4,7 +4,6 @@
 package SVN::S4::QuickCommit;
 require 5.006_001;
 
-use SVN::S4;
 use strict;
 use Carp;
 use IO::Dir;
@@ -14,9 +13,11 @@ use Digest::MD5;
 use MIME::Base64;
 use vars qw($AUTOLOAD);
 
+use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 
 our @Quick_Commit_status_data;
 our $Quick_Commit_self;
@@ -30,6 +31,7 @@ our $Quick_Commit_self;
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 ######################################################################
 ### Package return
@@ -47,7 +49,7 @@ sub quick_commit {
 		  message => [],
                   @_);
 
-    #print ("IN self ",Dumper($self), "params ",Dumper(\%params)) if $self->debug;
+    #DEBUG ("IN self ",Dumper($self), "params ",Dumper(\%params)) if $self->debug;
     $Quick_Commit_self = $self;
 
     my @newpaths;
@@ -69,7 +71,7 @@ sub quick_commit {
 		    (defined $params{message}[0] ? ("-m", $params{message}[0]) : ()),
 		    (defined $params{file}[0] ? ("-F", $params{file}[0]) : ()),
 		    @files);
-	print Dumper(\@args) if $self->debug;
+	DEBUG Dumper(\@args) if $self->debug;
 	if (!$self->{dryrun}) {  # svn doesn't accept ci --dry-run
 	    $self->run_svn(@args);
 	}
@@ -79,11 +81,11 @@ sub quick_commit {
 sub find_commit_stuff {
     my ($self, $path, $params) = @_;
     # do svn status and record anything that looks strange.
-    print "find_commit_stuff '$path'...\n" if $self->debug;
+    DEBUG "find_commit_stuff '$path'...\n" if $self->debug;
 
     undef @Quick_Commit_status_data;
     my $stat = $self->client->status (
-	    $path,		# path
+	    $path,		# canonical path
 	    "WORKING",		# revision
 	    \&Quick_Commit_statfunc,	# status func
 	    ($params->{recurse}?1:0),	# recursive
@@ -155,7 +157,7 @@ SVN::S4::QuickCommit
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Bryce Denney.  This package is free software; you
+Copyright 2005-2011 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

@@ -4,14 +4,16 @@
 package SVN::S4::WorkProp;
 require 5.006_001;
 
-use SVN::S4;
 use strict;
 use Carp;
 use Config::Tiny;
 use Cwd qw(getcwd);
 use vars qw($AUTOLOAD);
 
-our $VERSION = '1.050';
+use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
+
+our $VERSION = '1.051';
 
 # Legal characters in keys/values.
 # Overly strict; INI format doesn't allow []; or whitespace
@@ -23,6 +25,7 @@ our $_Prop_Regexp = qr/^[---+a-zA-Z0-9_.,\/]+$/;
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 sub _workprop_read {
     my $self = shift;
@@ -41,7 +44,7 @@ sub _workprop_read {
 	$self->{_workcfg_filename} = "$dir/.svn/workprops";
     }
 
-    print STDERR "s4: _workprop_read $self->{_workcfg_filename}\n" if $SVN::S4::Debug;
+    DEBUG "s4: _workprop_read $self->{_workcfg_filename}\n" if $self->debug;
     if (-e $self->{_workcfg_filename}) {
 	$self->{_workcfg} = Config::Tiny->read($self->{_workcfg_filename});
     } elsif (!$self->{_workcfg}) {
@@ -53,7 +56,7 @@ sub _workprop_read {
 sub _workprop_write {
     my $self = shift;
     $self->{_workcfg_filename} or die "s4: Internal-%Error: never _workprop_read";
-    print STDERR "s4: _workprop_write $self->{_workcfg_filename}\n" if $SVN::S4::Debug;
+    DEBUG "s4: _workprop_write $self->{_workcfg_filename}\n" if $self->debug;
     $self->{_workcfg}->write($self->{_workcfg_filename});
     die $self->{_workcfg}->errstr,"\n" if $self->{_workcfg}->errstr;
 }
@@ -193,7 +196,7 @@ keywords that need repair.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Wilson Snyder.  This package is free software; you
+Copyright 2005-2011 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

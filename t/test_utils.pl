@@ -1,9 +1,10 @@
 # DESCRIPTION: Perl ExtUtils: Common routines required by package tests
 #
-# Copyright 2002-2010 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2011 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
+use File::Find;
 use IO::File;
 use Cwd;
 use vars qw($PERL $REPO $REPOFN);
@@ -72,6 +73,35 @@ sub write_text {
     }
     print $fh $text;
     $fh->close();
+}
+
+sub file_list {
+    my $dir = shift;
+    local %files;
+    find({ wanted => sub {
+	return if /\.svn/;
+	$files{$_} = 1;
+    }, follow => 0, no_chdir => 1 }, $dir);
+    my @out = sort keys %files;
+    return \@out;
+}
+
+sub like_cmd ($$) {
+    my $cmd = shift;
+    my $regexp = shift;
+    my $tb = Test::More->builder;
+    my $out = `$cmd`;
+    (my $tell_cmd = $cmd) =~ s/^${PERL} *//;
+    $tb->like($out, $regexp, $tell_cmd);
+}
+
+sub is_cmd ($$) {
+    my $cmd = shift;
+    my $regexp = shift;
+    my $tb = Test::More->builder;
+    my $out = `$cmd`;
+    (my $tell_cmd = $cmd) =~ s/^${PERL} *//;
+    $tb->is_eq($out, $regexp, $tell_cmd);
 }
 
 1;

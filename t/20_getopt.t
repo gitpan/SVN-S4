@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # DESCRIPTION: Perl ExtUtils: Type 'make test' to test this package
 #
-# Copyright 2002-2010 by Wilson Snyder.  This program is free software;
+# Copyright 2002-2011 by Wilson Snyder.  This program is free software;
 # you can redistribute it and/or modify it under the terms of either the GNU
 # Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 
@@ -9,7 +9,7 @@ use strict;
 use Test::More;
 use Cwd;
 
-BEGIN { plan tests => 33 }
+BEGIN { plan tests => 34 }
 BEGIN { require "t/test_utils.pl"; }
 
 our $Debug;
@@ -29,6 +29,17 @@ ok ($hash{'--revision'}
     && $hash{pathorurl}[0] eq 'frev'
     && $hash{pathorurl}[1] eq 'frev2'
     && $hash{password}[0]  eq 'PW');
+
+my @cmd = $opt->formCmd("update", { quiet=>1, revision=>1234,
+				    depth=>6, ignore_me=>1234,
+				    path=>["p1","p2"] });
+is_deeply (\@cmd,
+	   ['update',
+	    '--depth', 6,
+	    '--quiet',
+	    '--revision', 1234,
+	    'p1', 'p2'],
+	   "formCmd");
 
 ck('add      --targets FILENAME --non-recursive --quiet --config-dir DIR --auto-props --no-auto-props --force PATH');
 ck('blame    --revision REV --username USER --password PASS --no-auth-cache --non-interactive --config-dir DIR --verbose --force --extensions ARGS PATH');

@@ -5,12 +5,14 @@ package SVN::S4::Config;
 require 5.006_001;
 
 use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
+
 use strict;
 use Carp;
 use Config::Tiny;
 use vars qw($AUTOLOAD);
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 
 #######################################################################
 #######################################################################
@@ -18,6 +20,7 @@ our $VERSION = '1.050';
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 sub _config_filenames {
     # Files where config may live
@@ -34,7 +37,7 @@ sub _config_read {
 
     $self->{_config} ||= {};
     foreach my $filename ($self->_config_filenames) {
-	print STDERR "s4: _config_read $filename\n" if $SVN::S4::Debug;
+	DEBUG "s4: _config_read $filename\n" if $self->debug;
 	if (-e $filename) {
 	    my $cfg = Config::Tiny->read($filename);
 	    foreach my $sec (keys %$cfg) {
@@ -102,7 +105,7 @@ Return the config value for the given section and key.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Wilson Snyder.  This package is free software; you
+Copyright 2005-2011 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

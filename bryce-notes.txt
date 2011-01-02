@@ -251,7 +251,7 @@ To do:
   - or, make an svn external (svn propset . and then svn co [-r] URL PATH)
     but wait until there's a need.
 - (DONE) Integrate complete_patch as "s4 snapshot"
-- (DONE) Integrate strong_revert as "s4 revert --force"
+- (DONE) Integrate strong_revert as "s4 scrub --force"
 
 
 

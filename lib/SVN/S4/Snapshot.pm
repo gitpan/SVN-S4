@@ -40,7 +40,6 @@
 package SVN::S4::Snapshot;
 require 5.006_001;
 
-use SVN::S4;
 use strict;
 use Carp;
 use IO::Dir;
@@ -50,9 +49,11 @@ use Digest::MD5;
 use MIME::Base64;
 use vars qw($AUTOLOAD);
 
+use SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 our $Info = 1;
 
 
@@ -65,10 +66,11 @@ our $Info = 1;
 #######################################################################
 # OVERLOADS of S4 object
 package SVN::S4;
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 sub snapshot {
     my $self = shift;
-    $self->snapshot_main (@_);
+    $self->_snapshot_main (@_);
 }
 
 ######################################################################
@@ -121,7 +123,7 @@ our %File_by_dirpath; # a hash of lists of $files.
 ## If there's not an svn tree there, blow up.
 
 
-sub snapshot_main {
+sub _snapshot_main {
     my $self = shift;
     my %params = (#path=>,
                   #disregard_ignore_list=>,
@@ -139,7 +141,7 @@ sub snapshot_main {
     chdir $canonical_path or die "s4: %Error: chdir $canonical_path";
 
     $Snapshot_Statfunc_Debug = $self->debug || 0;
-    $self->client->notify(\&notify_callback);
+    $self->client->notify(\&_notify_callback);
     my @objects = do_svn_status ($self, $canonical_path, $params{disregard_ignore_list});
     $self->client->notify(undef);
 
@@ -156,7 +158,7 @@ sub snapshot_main {
 	my $ps = $obj->{prop_status};
 	my $kind = $obj->{kind};
 	my $fullpath = $obj->{path};
-	print STDERR "Deciding about '$fullpath' : text is $ts, prop is $ps\n" if $self->debug;
+	DEBUG "Deciding about '$fullpath' : text is $ts, prop is $ps\n" if $self->debug;
 	my $relpath = $fullpath;
 	$relpath =~ s/^$canonical_path\///;
 	$relpath = '.' if $relpath eq $canonical_path;
@@ -170,8 +172,8 @@ sub snapshot_main {
 	if ($ps eq 'normal' || $ps eq 'none') {
 	    # no diff needed
 	} else {
-	    print STDERR "Restore properties for $relpath\n" if $self->debug;
-	    $svn_prop_changes .= restore_proplist ($self,$relpath,$fullpath);
+	    DEBUG "Restore properties for $relpath\n" if $self->debug;
+	    $svn_prop_changes .= _restore_proplist ($self,$relpath,$fullpath);
 	}
 	# look for text differences
 	if ($ts eq 'normal') {
@@ -251,9 +253,9 @@ sub snapshot_main {
     }
 
     our %Dividers = (
-	1 => gen_section_divider(1),
-	2 => gen_section_divider(2),
-	3 => gen_section_divider(3)
+	1 => _gen_section_divider(1),
+	2 => _gen_section_divider(2),
+	3 => _gen_section_divider(3)
     );
 
     print STDOUT qq{#!/bin/bash -x
@@ -311,11 +313,11 @@ fi
 		&& nonzero($dir->{rev})
 		&& ($parent->{rev} != $dir->{rev});
 	    if ($switched) {
-		print STDERR "this_url=$this_url, expected $parent_url/$dirpath_last_elem\n" if $self->debug;
+		DEBUG "this_url=$this_url, expected $parent_url/$dirpath_last_elem\n" if $self->debug;
 		print STDOUT "# directory '$dirpath' url differs from parent\n";
 		print STDOUT "(cd '$dirpath' && \$S4 switch $quiet --revision $dir->{rev} '$this_url')\n";
 	    } elsif ($revchange) {
-		print STDERR "urls match. thisrev=$dir->{rev}, parent rev=$parent->{rev}\n" if $self->debug;
+		DEBUG "urls match. thisrev=$dir->{rev}, parent rev=$parent->{rev}\n" if $self->debug;
 		print STDOUT "# directory '$dirpath' revision differs from parent\n";
 		print STDOUT "(cd '$dirpath' && \$S4 up $quiet --revision $dir->{rev})\n";
 	    }
@@ -392,25 +394,12 @@ patch -N -t -p0 -s < $0
 	print join("\n#   ", @inlinebins);
 	print STDOUT "\n###########################################################\n";
 	print STDOUT $Dividers{3}, "\n";
-	$self->inline_binaries (@inlinebins);
+	$self->_inline_binaries (@inlinebins);
     }
     print STDOUT "\n";
 }
 
-sub valid_svn_tree {
-    my ($self, $path) = @_;
-    return if ! -d $path;
-    return if ! -d "$path/.svn";
-    print STDERR "find url of $path\n" if $self->debug;
-    my $url = $self->get_svn_url ($path);
-    if (!defined $url || (length $url)<1) {
-	print STDERR "Could not find svn url from $path. Existing svn tree is not valid.\n";
-        return;
-    }
-    return $url;
-}
-
-sub Snapshot_statfunc {
+sub _snapshot_statfunc {
     my ($path, $status) = @_;
     if ($Snapshot_Statfunc_Debug) {
 	print STDERR "================================\n";
@@ -473,17 +462,17 @@ sub Snapshot_statfunc {
 #   revision number of the changed file.  The revision number will be -1 except when the
 #   action is $SVN::Wc::Notify::Action::update_completed.
 
-sub notify_callback {
+sub _notify_callback {
     my ($path,$action,$kind,$mimetype,$state,$rev) = @_;
-    print STDERR "notify callback: path=$path" if $Snapshot_Statfunc_Debug > 0;
+    my $msg="notify callback: path=$path";
     if ($action == $SVN::Wc::Notify::Action::status_external) {
-        print STDERR " action=status_external" if $Snapshot_Statfunc_Debug > 0;
+        $msg .= " action=status_external";
 	$Externals{$path} = 1;
     }
     if ($action == $SVN::Wc::Notify::Action::status_completed) {
-        print STDERR " action=status_completed\n" if $Snapshot_Statfunc_Debug > 0;
+        $msg .= " action=status_completed";
     }
-    print STDERR "\n" if $Snapshot_Statfunc_Debug > 0;
+    DEBUG "$msg\n" if $Snapshot_Statfunc_Debug > 0;
 }
 
 
@@ -493,9 +482,9 @@ sub do_svn_status {
     # Have to use get_all=1 so that we notice clean files with a different rev number.
     undef @svn_status_data;
     my $stat = $self->client->status (
-	    $path,		# path
+	    $path,		# canonical path
 	    "WORKING",		# revision
-	    \&Snapshot_statfunc,	# status func
+	    \&_snapshot_statfunc,	# status func
 	    1,			# recursive
 	    1,			# get_all
 	    0,			# update
@@ -506,7 +495,7 @@ sub do_svn_status {
 
 sub run_nocheck {
     my ($self, $cmd) = @_;
-    print STDERR "Exec: $cmd\n" if $self->debug;
+    DEBUG "Exec: $cmd\n" if $self->debug;
     my $status = system($cmd)
 	or die "s4: %Error: system $cmd failed: $?";
     return ($? >> 8);
@@ -516,7 +505,7 @@ sub get_svn_rev {
     # I don't know how to do this with SVN::Client.
     # So do it the old fashioned way.
     my ($self,$path) = @_;
-    print STDERR "Exec: cd '$path' && $self->{svn_binary} info\n" if $self->debug;
+    DEBUG "Exec: cd '$path' && $self->{svn_binary} info\n" if $self->debug;
     open (INFO, "cd '$path' && $self->{svn_binary} info |");
     my $rev;
     while (<INFO>) {
@@ -533,7 +522,7 @@ sub get_svn_url {
     # I don't know how to do this with SVN::Client.
     # So do it the old fashioned way.
     my ($self,$path) = @_;
-    print STDERR "Exec: cd '$path' && $self->{svn_binary} info\n" if $self->debug;
+    DEBUG "Exec: cd '$path' && $self->{svn_binary} info\n" if $self->debug;
     open (INFO, "cd '$path' && $self->{svn_binary} info |");
     my $url;
     while (<INFO>) {
@@ -568,7 +557,7 @@ sub add_file {
     }
     my $file = {filename=>$filename, rev=>$rev};
     push @{$File_by_dirpath{$dirpath}}, $file;
-    #print STDERR "File_by_dirpath{$dirpath} = $filename\n";  # if $self->debug;
+    #DEBUG "File_by_dirpath{$dirpath} = $filename\n";  # if $self->debug;
 }
 
 sub parent_of_dir {
@@ -588,17 +577,17 @@ sub parent_of_dir {
 sub text_or_binary {
     my ($self, $path) = @_;
     my $hashref = $self->client->propget('svn:mime-type', $path, "WORKING", 0);
-    print STDERR "propget returns ", Dumper($hashref), "\n" if $self->debug;
+    DEBUG "propget returns ", Dumper($hashref), "\n" if $self->debug;
     my $type = $hashref->{$path};
     return 'binary' if (defined $type && $type eq 'application/octet-stream');
     return 'text';
 }
 
-sub inline_binaries {
+sub _inline_binaries {
     my $self = shift;
     if (!defined $_[0]) { die "s4: Internal-%Error: inline_binaries called with empty list"; }
     my $tarcmd = "tar czf - " . join (' ', @_);
-    print STDERR "Exec: $tarcmd |\n" if $self->debug;
+    DEBUG "Exec: $tarcmd |\n" if $self->debug;
     open (PIPE, "$tarcmd |") || die "s4: %Error: open pipe from tar";
     my $status;
     my $buf;
@@ -611,38 +600,38 @@ sub inline_binaries {
     }
 }
 
-sub gen_section_divider {
+sub _gen_section_divider {
     my ($section) = @_;
     my $rands = rand() . rand() . rand() . rand();
     return "# BEGIN SECTION $section # $rands";
 }
 
-sub restore_proplist {
+sub _restore_proplist {
     my ($self, $relpath, $fullpath) = @_;
     my $proplist = $self->client->proplist($fullpath, "WORKING", 0);
-    my $out = emit_propclear ($relpath);  # emit code to clear properties
+    my $out = _emit_propclear ($relpath);  # emit code to clear properties
     return $out if !defined $proplist->[0];  # there are no properties. done!
     my $prophash = $proplist->[0]->prop_hash;
     if ($self->debug) {
-	print STDERR "path=", $proplist->[0]->node_name, "\n";
-	print STDERR Dumper($prophash) if $self->debug;
+	DEBUG "path=", $proplist->[0]->node_name, "\n";
+	DEBUG Dumper($prophash) if $self->debug;
     }
     foreach my $name (keys %$prophash) {
         my $value = $prophash->{$name};
-        print STDERR "name=$name, value=$value\n" if $self->debug;
-	$out .= emit_propset($relpath, $name, $value);
+        DEBUG "name=$name, value=$value\n" if $self->debug;
+	$out .= _emit_propset($relpath, $name, $value);
     }
     return $out;
 }
 
-sub emit_propclear {
+sub _emit_propclear {
     my ($path) = @_;
     my $out = $Propclear_bash_func;
     $Propclear_bash_func = "";  # so that it's only printed once into the patch
     return $out . "propclear $path\n";
 }
 
-sub emit_propset {
+sub _emit_propset {
     my ($path, $name, $value) = @_;
     # name or esp. value could conceivably be things that are impossible to quote.
     if (single_quotable($name) && single_quotable($value)) {
@@ -697,7 +686,7 @@ SVN::S4::Snapshot
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2010 by Bryce Denney.  This package is free software; you
+Copyright 2005-2011 by Bryce Denney.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

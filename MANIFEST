@@ -4,13 +4,14 @@ Changes
 lib/SVN/S4.pm
 lib/SVN/S4/CatOrMods.pm
 lib/SVN/S4/Config.pm
+lib/SVN/S4/Debug.pm
 lib/SVN/S4/FixProp.pm
 lib/SVN/S4/Getopt.pm
 lib/SVN/S4/Info.pm
 lib/SVN/S4/Path.pm
 lib/SVN/S4/QuickCommit.pm
+lib/SVN/S4/Scrub.pm
 lib/SVN/S4/Snapshot.pm
-lib/SVN/S4/StrongRevert.pm
 lib/SVN/S4/Update.pm
 lib/SVN/S4/ViewSpec.pm
 lib/SVN/S4/WorkProp.pm

@@ -10,9 +10,10 @@ use IO::File;
 use Cwd;
 use vars qw($AUTOLOAD);
 
+use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.050';
+our $VERSION = '1.051';
 
 #######################################################################
 #######################################################################
@@ -22,6 +23,8 @@ our $VERSION = '1.050';
 package SVN::S4;
 use Cwd qw(getcwd);
 use strict;
+
+use SVN::S4::Debug qw (DEBUG is_debug);
 
 sub cat_or_mods {
     my $self = shift;
@@ -38,7 +41,7 @@ sub cat_or_mods {
     my $_Modified = 1;  # Default to safe
 
     my $stat = $self->client->status
-	($filename,		# path
+	($filename,		# canonical path
 	 "WORKING",		# revision
 	 sub {
 	     my ($path, $status) = @_;
@@ -59,13 +62,13 @@ sub cat_or_mods {
 	);
 
     if ($_Modified) {
-	print "cat-or-mods: From WORKING\n" if $self->debug;
+	DEBUG "cat-or-mods: From WORKING\n" if $self->debug;
 	my $fh = IO::File->new("<$filename")
 	    or die "s4: %Error: $! $filename\n";
 	print join('',$fh->getlines);
     }
     else {
-	print "cat-or-mods: From HEAD\n" if $self->debug;
+	DEBUG "cat-or-mods: From HEAD\n" if $self->debug;
 	#$self->client->cat(\&STDOUT, $filename, "HEAD");
 	# Got "unknown type for svn_stream_t"
 	# So instead we'll use the command line interface
@@ -118,7 +121,7 @@ Cat or show modifications for the specified file.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2009-2010 by Wilson Snyder.  This package is free software; you
+Copyright 2009-2011 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

@@ -16,7 +16,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.051';
+our $VERSION = '1.052';
 our $Info = 1;
 
 
@@ -42,7 +42,7 @@ sub update {
     push @paths, "." if !@paths;
     if (!$params{fallback_cmd}) {  # used when called from within S4.
 	die "s4: %Error: s4 update needs revision" unless defined $params{revision};
-	my @cmd = ($self->{svn_binary}, 'update', @paths);
+	my @cmd = (split(/\s+/,$self->{svn_binary}), 'update', @paths);
 	push @cmd, ('--revision', $params{revision});
 	$params{fallback_cmd} = \@cmd;
     }
@@ -56,9 +56,9 @@ sub update {
 
     # see if a viewspec file is present
     my $viewspec = "$abspath/" . $self->{viewspec_file};
-    my $found_viewspec = (-d "$abspath" && -f $viewspec);
+    my $found_viewspec = $self->dir_uses_viewspec($abspath);
     if (!$found_viewspec) {
-        DEBUG "update tree with no viewspec. update normally\n" if $self->debug;
+        DEBUG "update tree with no viewspec ($viewspec). update normally\n" if $self->debug;
 	return $self->run ($params{fallback_cmd});
     }
     DEBUG "Found a viewspec file. First update the top directory only.\n" if $self->debug;
@@ -73,19 +73,22 @@ sub update {
     DEBUG "Using revision $rev for all viewspec operations\n" if $self->debug;
     $self->{revision} = $rev;  # Force/override any user --revision flag
 
-    # Run update nonrecursively the first time.  The viewspec may replace
+    # We used to run update nonrecursively the first time.  The viewspec may replace
     # pieces of the tree, so it would sometimes be a big waste of time to
-    # update it all.
+    # update it all.  However, this disallows a viewspec inside an existing checkout
+    # (or we'd have to repair the root, which confuses svn.)
     DEBUG "Updating the top\n" if $self->debug;
-    my @cmd_nonrecursive = ($self->{svn_binary}, "update", "--non-recursive", $abspath);
+    my @cmd_nonrecursive = (split(/\s+/,$self->{svn_binary}), "update",
+			    #"--non-recursive",
+			    $abspath);
     push @cmd_nonrecursive, "--quiet" if $self->quiet;
     push @cmd_nonrecursive, ("-r$rev");
     DEBUG "\t",join(' ',@cmd_nonrecursive),"\n" if $self->debug;
     local $! = undef;
     $self->run(@cmd_nonrecursive);
 
-    # did viewspec just disappear???
-    $found_viewspec = (-d $abspath && -f $viewspec);
+    # Did viewspec just disappear??? One hopes not.
+    $found_viewspec = $self->dir_uses_viewspec($abspath);
     if (!$found_viewspec) {
         DEBUG "Viewspec disappeared. Do normal update.\n" if $self->debug;
         DEBUG "viewspec was here, but now it's gone! update normally.\n" if $self->debug;
@@ -104,7 +107,7 @@ sub update {
 	# We don't use fallback_cmd, as we want a specific revision
 	# Also, it breaks when given a symlink as a target, instead of the symlink's target
 	my $opt = SVN::S4::Getopt->new;
-	my @cmd = $self->{svn_binary};
+	my @cmd = split(/\s+/,$self->{svn_binary});
 	push @cmd, $opt->formCmd('update', { %{$self},
 					     revision => $rev,
 					     path => [$abspath],
@@ -125,7 +128,7 @@ sub checkout {
     if (!$params{fallback_cmd}) {  # used when called from within S4.
 	die "s4: %Error: s4 checkout needs url,path,revision"
 	   unless defined $params{url} && defined $params{path} && defined $params{revision};
-	my @cmd = ($self->{svn_binary}, 'checkout', $params{url}, $params{path});
+	my @cmd = (split(/\s+/,$self->{svn_binary}), 'checkout', $params{url}, $params{path});
 	push @cmd, ('--revision', $params{revision});
 	$params{fallback_cmd} = \@cmd;
     }
@@ -159,20 +162,23 @@ sub checkout {
     $rev = $self->which_rev (revision=>$rev, path=>$params{url});
     DEBUG "Using revision $rev for all viewspec operations\n" if $self->debug;
 
-    # Run checkout nonrecursively the first time.  The viewspec may replace
+    # We used to run checkout nonrecursively the first time.  The viewspec may replace
     # pieces of the tree, so it would sometimes be a big waste of time to
-    # checkout it all.
+    # update it all.  However, this disallows a viewspec inside an existing checkout
+    # (or we'd have to repair the root, which confuses svn.)
     DEBUG "s4: Checkout the top view directory into $params{path}\n" if $self->debug;
-    my @cmd_nonrecursive = ($self->{svn_binary}, "checkout", "--revision", $rev, "--non-recursive", $params{url}, $params{path});
+    my @cmd_nonrecursive = (split(/\s+/,$self->{svn_binary}), "checkout", "--revision", $rev,
+			    #"--non-recursive",
+			    $params{url}, $params{path});
     push @cmd_nonrecursive, "--quiet" if $self->quiet;
     DEBUG "\t",join(' ',@cmd_nonrecursive),"\n" if $self->debug;
     local $! = undef;
     $self->run(@cmd_nonrecursive);
     $self->wait_for_existence(path=>$params{path});
 
-    # Did viewspec just disappear??? One hiopes not.
+    # Did viewspec just disappear??? One hopes not.
     my $viewspec = "$params{path}/$self->{viewspec_file}";
-    $found_viewspec = (-d $params{path} && -f $viewspec);
+    $found_viewspec = $self->dir_uses_viewspec($params{path});
     if (!$found_viewspec) {
 	# I can only imagine this happening if checkout was interrupted, or somebody
 	# deleted the viewspec from the repo in the last few seconds.

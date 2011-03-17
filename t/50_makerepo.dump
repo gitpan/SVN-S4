@@ -395,3 +395,237 @@ PROPS-END
 rev12
 
 
+Revision-number: 13
+Prop-content-length: 116
+Content-length: 116
+
+K 7
+svn:log
+V 14
+Create viewpeg
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2011-02-08T13:55:43.463563Z
+PROPS-END
+
+Node-path: views/trunk/viewpeg
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: views/trunk/viewpeg/Project.viewspec
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 392
+Text-content-md5: 8601ee1eb769fa1ae448224c05d0b7f5
+Text-content-sha1: 15885e1055058e1b33c7fc3399ecf290248574d9
+Content-length: 402
+
+PROPS-END
+########################################################################
+# This is a Project.viewspec file.  It describes how to build a subversion
+# working area in a form that the "s4" subversion wrapper can read.
+########################################################################
+
+set	EMPTY			^/void
+
+view	^/top/trunk/tdir1@11	trunk_tdir1_11
+view	^/top/trunk/tdir1@12	trunk_tdir1_12
+
+
+Revision-number: 14
+Prop-content-length: 117
+Content-length: 117
+
+K 7
+svn:log
+V 15
+Create viewwild
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2011-02-08T15:07:22.824639Z
+PROPS-END
+
+Node-path: views/trunk/viewwild
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: views/trunk/viewwild/Project.viewspec
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 339
+Text-content-md5: dfaf3ca4c1b5a16d8a4829734a41e535
+Text-content-sha1: 8dff4c8419e41260a4b12e7714fc36227326286c
+Content-length: 349
+
+PROPS-END
+########################################################################
+# This is a Project.viewspec file.  It describes how to build a subversion
+# working area in a form that the "s4" subversion wrapper can read.
+########################################################################
+
+set	EMPTY			^/void
+
+view	^/top/trunk/t(.*)	re_$1
+
+
+Revision-number: 15
+Prop-content-length: 114
+Content-length: 114
+
+K 7
+svn:log
+V 12
+Add viewhier
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2011-02-09T15:16:37.071876Z
+PROPS-END
+
+Node-path: top/trunk/tdirhier
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: top/trunk/tdirhier/Project.viewspec
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 380
+Text-content-md5: da0cfbbd79ebaac3d0f70988766deb31
+Text-content-sha1: d2961cd369cbb4e513039b252fa3fe4517d35532
+Content-length: 390
+
+PROPS-END
+########################################################################
+# This is a Project.viewspec file.  It describes how to build a subversion
+# working area in a form that the "s4" subversion wrapper can read.
+########################################################################
+
+set	EMPTY			^/void
+
+view	^/top/trunk/tdir1	trunk_tdir1
+view	^/top/trunk/tdir2	trunk_tdir2
+
+
+Node-path: top/trunk/tdirhier/tdirhier__file
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 14
+Text-content-md5: 82b5ec96b7c1ae29602d8f32543a967e
+Text-content-sha1: 9f2f7cef1413319232ca7238240595930609af3e
+Content-length: 24
+
+PROPS-END
+# Placeholder
+
+
+Node-path: views/trunk/viewhier
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: views/trunk/viewhier/Project.viewspec
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 607
+Text-content-md5: c0ed32bc75f55ab5da8e0567fc183086
+Text-content-sha1: 4f768cb57f3e30fd6f723900656778745a497c65
+Content-length: 617
+
+PROPS-END
+########################################################################
+# This is a Project.viewspec file.  It describes how to build a subversion
+# working area in a form that the "s4" subversion wrapper can read.
+########################################################################
+
+set	EMPTY			^/void
+
+view	^/top/trunk/tdirhier	tdirhier
+
+#Not yet supported
+#include ^/top/trunk/tdirhier/Project.viewspec
+# This defines tdirhier/trunk_tdir1
+# This defines tdirhier/trunk_tdir2
+# Effectively move trunk_tdir2 to top, not under tdirhier
+#unview	tdirhier/trunk_tdir2
+
+view	^/top/trunk/tdir2	trunk_tdir2
+
+
+Revision-number: 16
+Prop-content-length: 110
+Content-length: 110
+
+K 7
+svn:log
+V 9
+Add tsub3
+K 10
+svn:author
+V 7
+wsnyder
+K 8
+svn:date
+V 27
+2011-02-09T19:34:30.076171Z
+PROPS-END
+
+Node-path: top/trunk/tdirhier/tsub3
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: top/trunk/tdirhier/tsub3/tsub3__file
+Node-kind: file
+Node-action: add
+Prop-content-length: 10
+Text-content-length: 14
+Text-content-md5: 82b5ec96b7c1ae29602d8f32543a967e
+Text-content-sha1: 9f2f7cef1413319232ca7238240595930609af3e
+Content-length: 24
+
+PROPS-END
+# Placeholder
+
+

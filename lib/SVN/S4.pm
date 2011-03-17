@@ -29,7 +29,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.051';
+our $VERSION = '1.052';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -120,6 +120,7 @@ sub new {
 		revision => undef,  # default rev for viewspec operations
 		s4_binary => "s4",
 		svn_binary => "svn",   # overridden by command line or env variable
+		#		       # spaces separate arguments, not part of command path
 		viewspec_file => "Project.viewspec",
 		state_file => ".svn/s4_state",
 		rev_on_date_cache => {},   # empty hash ref
@@ -129,6 +130,7 @@ sub new {
 		# Internals
 		#_client => undef,
 		#_pool => undef,
+		_file_in_repo => {},
 		@_};
     # Copy all environment variables into viewspec_vars. Later the viewspec
     # "set" command will either use them or override them.
@@ -262,7 +264,7 @@ sub run_s4 {
 
 sub run_svn {
     my $self = shift;
-    my @list = ($self->{svn_binary}, @_);
+    my @list = (split(/\s+/,$self->{svn_binary}), @_);
     $self->run (@list);
 }
 
@@ -432,16 +434,30 @@ sub is_file_in_repo {
                   revision=>'HEAD',
                   @_);
     my $url = $params{url};
-    DEBUG "is_file_in_repo with url='$url'\n" if $self->debug;
+    if ($self->{_file_in_repo}{$params{revision}}{$url}) {  # Memoized result
+	DEBUG "is_file_in_repo with url='$url' YES-Memoized\n" if $self->debug;
+	return 1;
+    }
+    DEBUG "is_file_in_repo with rev='$params{revision}' url='$url'\n" if $self->debug;
     $self->hide_all_output();
     my $exists = 0;
     eval {
-        my $proplist = $self->client->proplist($url, $params{revision}, 0);
+	# ."" needed to make sure stringification occurs, as SWIG won't do so
+	my $proplist = $self->client->proplist($url, $params{revision}.'', 0);
 	DEBUG "proplist returned, so the url must have existed\n" if $self->debug;
 	$exists = 1;
     };
     $self->restore_all_output();
+    $self->{_file_in_repo}{$params{revision}}{$url} = $exists;
     return $exists;
+}
+
+sub known_file_in_repo {
+    my $self = shift;
+    my %params = (#url=>,
+                  revision=>'HEAD',
+                  @_);
+    $self->{_file_in_repo}{$params{revision}}{$params{url}} = 1;
 }
 
 # Given a date string and url, find the svn revision that was current at that time.
@@ -559,6 +575,19 @@ sub ensure_valid_date_string {
     my $date = shift;
     return if $date =~ /^\d{4}-\d{2}-\d{2}$/;	# allow 2006-01-01
     die "s4: %Error: date argument '$date' must have the form: 2006-01-01\n";
+}
+
+sub dir_uses_viewspec {
+    my $self = shift;
+    my $path = shift;
+
+    my $abspath = $self->abs_filename($path);
+    my $viewspec = "$abspath/$self->{viewspec_file}";
+
+    # Ignore Viewspec's burried under other (possible) viewspecs
+    my $parent_is_svn = (-d "$abspath/../.svn");
+    DEBUG "  Note this tree is under another svn tree ($abspath/../.svn)\n" if $parent_is_svn && $self->debug;
+    return (!$parent_is_svn && -f $viewspec);
 }
 
 ######################################################################

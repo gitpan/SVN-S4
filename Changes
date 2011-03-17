@@ -3,6 +3,26 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
+* SVN::S4 1.052 2011/03/17
+
+**   Viewspecs may live in existing trees, which will be checked out completely,
+     instead of non-recursively as in previous versions.
+
+***  Viewspecs may specify wildcard URLs.  [Joseph DErrico] [Brad Dobbie]
+
+***  Viewspecs may have URL@PEGREV as an alternative to "rev PEGREV"
+     to match what svn switch supports. [Brad Dobbie]
+
+***  Fix 's4 update -r' with viewspec causing error.  [Jeff Schroeder]
+
+**** On 's4 update' ignore viewspecs in sub-directories of other viewspecs.
+
+**** Fix some viewspecs ignoring multiple "unview"s. [Brad Dobbie]
+
+**** Fix 's4 snapshot' unused warning on new properties. [John Sweeney]
+
+**** Fix 's4 snapshot' with newlines in properties. [John Sweeney]
+
 * SVN::S4 1.051 2011/01/02
 
 ***  s4 info-switches now supports URL format for viewspecs.

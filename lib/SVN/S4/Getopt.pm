@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.051';
+our $VERSION = '1.052';
 
 our %_Aliases =
     (
@@ -995,6 +995,10 @@ sub hashCmd {
     my $self = shift;
     my $cmd = shift;
     my @args = @_;
+
+    # If args passed from Getopt, then it's a object, which may confuse
+    # later SWIG SVN::Client operations
+    @args = map { $_.'' } @args;
 
     # if any single-dash args like "-r2000", expand them into "-r" and "2000"
     # before parsing.

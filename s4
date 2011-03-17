@@ -6,6 +6,7 @@ require 5.006_001;
 use FindBin qw($RealBin);
 use lib "$RealBin/blib/arch";
 use lib "$RealBin/blib/lib";
+use lib "$RealBin/lib";
 use lib "$RealBin";
 
 use Getopt::Long;
@@ -28,7 +29,7 @@ use vars qw ($VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.051';
+$VERSION = '1.052';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -67,6 +68,8 @@ if (! GetOptions (
     die "%Error: Type 's4 help' for usage.\n";
 }
 
+$ENV{RSVN_CALLING_SSH}=1;
+
 $Opt_Cmd = '' if !defined $Opt_Cmd;  # to avoid perl warnings about undef
 # Put any CmdParamsEnd at the end of the list, so that they will be after the
 # svn subcommand.
@@ -82,6 +85,7 @@ $s4->{svn_binary} = $Opt_SvnBinary || $ENV{'S4_SVN'} || "svn";
 DEBUG "Using '$s4->{svn_binary}' for subversion commands\n" if is_debug;
 $s4->{s4_binary} = $0;
 DEBUG "Using '$s4->{s4_binary}' for s4 commands\n" if is_debug;
+DEBUG "Using SVN_SSH='".($ENV{SVN_SSH}||'')."\n" if is_debug;
 
 DEBUG "opts=", Dumper(\%opts), "\n" if is_debug>=9;
 
@@ -204,7 +208,7 @@ sub raw_svn_command {
 	DEBUG "But not using:\n";
 	DEBUG "  opts = ", Dumper(\%opts), "\n";
     }
-    my @cmd = ($s4->{svn_binary});
+    my @cmd = (split(/\s+/,$s4->{svn_binary}));
     push @cmd, $Opt_Cmd;
     push @cmd, @Opt_CmdParams;
     return \@cmd;
@@ -338,12 +342,11 @@ sub check_viewspec_after_svn_cmd {
                   @_);
     my $path = $params{path};
     # Is there a viewspec file? If so parse and update accordingly.
-    my $viewspec = "$path/" . $s4->{viewspec_file};
-    my $found_viewspec = (-d $path && -f $viewspec);
-    if (!$found_viewspec) {
+    if (!$s4->dir_uses_viewspec($path)) {
         DEBUG "after switch, there is no viewspec. done.\n" if $s4->debug;
         return;
     }
+    my $viewspec = "$path/" . $s4->{viewspec_file};
     my $rev = $params{revision};
     $rev = $s4->which_rev (revision=>$rev, path=>$path) if !$rev;
     DEBUG "Using revision $rev for all viewspec operations\n" if $s4->debug;
@@ -702,7 +705,7 @@ Example of making a snapshot and restoring:
 
 =head2 update
 
-s4 checkout behaves exactly the same way as svn checkout, unless the
+s4 update behaves exactly the same way as svn checkout, unless the
 top directory that you update contains a file called Project.viewspec.
 If Project.viewspec is present, s4 does the steps described in the
 "checkout" section above.
@@ -769,6 +772,15 @@ Read a file out of the SVN repository that contains viewspec commands.
 
 Directory DIR will be svn switched to URL.
 
+=item view URL/(.*) DIR$1
+
+Directory DIR will be svn switched to URL.  URL may contain a parenthesized
+regexp, which indicates the repository should be searched for matching
+files/subdirectories with the matching name.  If found, $1 will be
+substituted into DIR.  The URL parenthesis must follow all /s, that is they
+can only match against the final path component, not a mid-level part of
+the path.
+
 =item view URL DIR rev REVNUM
 
 Directory DIR will be svn switched to URL at revision REVNUM.  Note that
@@ -779,11 +791,18 @@ REVNUM can also be a date in normal subversion format, as listed here:
 http://svnbook.red-bean.com/nightly/en/svn-book.html#svn.tour.revs.dates
 Example: view URL DIR rev {2006-07-01}
 
+=item view URL@REVNUM DIR
+
+Alternative form of revision pegging.  This form must have a numeric
+revision.
+
 =item unview DIR
 
 Ignore any view/unview commands that came above, for directories that begin
-with DIR.  This may be useful if you have included a viewspec and want to
-override some of its view commands.
+with DIR, which may be a Perl regular expression. (The regexp must match
+everything from the beginning up through the end of the directory name.)
+This may be useful if you have included a viewspec and want to override
+some of its view commands.
 
 =back
 
@@ -824,6 +843,10 @@ checkout.
 
 =over 4
 
+=item RSVN_CALLING_SSH
+
+Set by this script to 1.  See C<rsvn> for details.
+
 =item S4_CONFIG
 
 Filename of additional configuration options.  Processed after the
@@ -831,8 +854,7 @@ Filename of additional configuration options.  Processed after the
 
 =item S4_SVN
 
-Name of svn executable, or "svn" if not specified.  One good alternative is
-"rsvn" which will speed up work areas on NFS disks.
+Name of svn executable, or "svn" if not specified.
 
 =back
 
@@ -863,7 +885,9 @@ Wilson Snyder <wsnyder@wsnyder.org>
 =head1 SEE ALSO
 
 L<svn>,
-L<SVN::S4>
+L<SVN::S4>,
+
+L<rsvn> package, which provides L<rs4> to run s4 on NFS servers.
 
 =cut
 

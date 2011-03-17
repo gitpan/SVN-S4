@@ -16,7 +16,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.051';
+our $VERSION = '1.052';
 our $Info = 1;
 
 
@@ -32,6 +32,12 @@ package SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 
 our @list_actions;
+
+sub die_viewspec {
+    my $self = shift;
+    my $msg = join('',@_);
+    die "s4: %Error: $self->{vs_fileline}: $msg\n";
+}
 
 sub viewspec_hash {
     my $self = shift;
@@ -82,6 +88,8 @@ sub _parse_viewspec_recurse {
     $self->{viewspec_path} = $params{filename} if !$self->{viewspec_path};
     DEBUG "s4: params{revision} = $params{revision}\n" if $self->debug && $params{revision};
     DEBUG "s4: now my revision variable is $self->{revision}\n" if $self->debug && $self->{revision};
+    # Replace ^
+    $fn = $self->_viewspec_expand_root($fn);
     my $fh = new IO::File;
     if ($fn =~ m%://%) {
         # treat it as an svn url
@@ -117,6 +125,7 @@ sub _parse_viewspec_line {
     my $filename = shift;
     my $line = shift;
     my @args = split(/\s+/, $line);
+    $self->{vs_fileline} = "$filename:$.";  # for die_viewspec
     $self->_expand_viewspec_vars (\@args);
     my $cmd = shift @args;
     if ($cmd eq 'view') {
@@ -129,9 +138,9 @@ sub _parse_viewspec_line {
         $self->_viewspec_cmd_set (@args);
     } else {
 	if ($line =~ /(>>>>>>|<<<<<<|======)/) {
-	    die "s4: %Error: $filename:$.: It looks like Project.viewspec has SVN conflict markers in it\n";
+	    $self->die_viewspec("It looks like viewspec has SVN conflict markers in it\n");
 	}
-        die "s4: %Error: $filename:$.: Unrecognized command in Project.viewspec: '$cmd'\n";
+        $self->die_viewspec("Unrecognized command in Project.viewspec: '$cmd'\n");
     }
 }
 
@@ -142,8 +151,79 @@ sub _expand_viewspec_vars {
     for (my $i=0; $i<=$#$listref; $i++) {
 	my $foo;
         #DEBUG "before substitution: $listref->[$i]\n" if $self->debug;
-	$listref->[$i] =~ s/\$([A-Za-z0-9_]+)/$self->{viewspec_vars}->{$1}/g;
+	# Note this doesn't expand ${digit}, those are regular expression replacements
+	$listref->[$i] =~ s/\$([A-Za-z_]+[A-Za-z0-9_]*)/$self->{viewspec_vars}->{$1}/g;
 	#DEBUG "after substitution: $listref->[$i]\n" if $self->debug;
+    }
+}
+
+sub _viewspec_expand_root {
+    my $self = shift;
+    my $url = shift;
+    if ($url =~ s!^\^!!) {
+	my $root = $self->file_root(filename=>$self->{viewspec_path});
+	$url = $root.$url;
+	DEBUG "expanded url to $url\n" if $self->debug;
+    }
+    return $url;
+}
+
+sub _viewspec_regexp_urlbase {
+    my $self = shift;
+    my $url = shift;
+    if ($url !~ /[\(\)]/) {  # No wildcard
+	return $url;
+    } else {
+	# Find directory part of url
+	my $urlbase = $url;
+	$urlbase =~ s!\(.*$!!;
+	$urlbase =~ s!/[^/]*$!! or $self->die_viewspec("In viewspec, wildcard URL is missing base path");
+	DEBUG "regexp URL found: '$url' base is '$urlbase'\n" if $self->debug;
+	# Note _expand assumes that urlbase is a prefix of $url
+	return $urlbase;
+    }
+}
+
+sub _viewspec_regexp_expand {
+    my $self = shift;
+    my $url = shift;
+    my $dir = shift;
+    my $rev = shift;
+    my $urlbase = $self->_viewspec_regexp_urlbase($url);
+    if ($urlbase eq $url) {  # No wildcard
+	$dir !~ /\$\d+/ or $self->die_viewspec("In viewspec, \$ expansion requested with no regexp\n");
+	return ({url=>$url, dir=>$dir});
+    } else {
+	my $pattern = substr($url,length($urlbase)+1);  # +1 for the /
+	DEBUG "s4: ls $urlbase -r $rev\n" if $self->debug;
+	my $dirent = $self->client->ls($urlbase,
+				       $rev,
+				       0, # recurive
+				       );
+	keys %{$dirent} or $self->die_viewspec("In viewspec, wildcard URL '$url' matches no objects");
+	#print Dumper($dirent);
+	my @out;
+	foreach my $basename (sort keys %{$dirent}) {
+	    # Accelerate future is_file_in_repo
+	    $self->known_file_in_repo(revision=>$rev, url=>$urlbase."/".$basename);
+	    if ($basename =~ /^$pattern$/) {
+		my $one = $1;  my $two = $2;
+
+		my $urlexp = $url;
+		$urlexp =~ s!\([^\)]*\)!$one!;
+		$urlexp =~ s!\([^\)]*\)!$two!;
+		$urlexp !~ m!\(! or $self->die_viewspec("Unsupported in viewspec, wildcard URL '$url' with more than two groups");
+
+		my $direxp = $dir;
+		$direxp =~ s!\$1!$one!g;
+		$direxp =~ s!\$2!$two!g;
+		push @out, {url=>$urlexp, dir=>$direxp};
+		DEBUG "view wildcard: '$url' hit  '$basename' -> '$urlexp' '$direxp'\n" if $self->debug;
+	    } else {
+		DEBUG "view wildcard: '$url' miss '$basename' via pattern '$pattern'\n" if $self->debug;
+	    }
+	}
+	return @out;
     }
 }
 
@@ -154,58 +234,67 @@ sub _viewspec_cmd_view {
     $rev = "" if !defined $rev;
     DEBUG "_viewspec_cmd_view: url=$url  dir=$dir  revtype=$revtype  rev=$rev\n" if $self->debug;
     if (!defined $url || !defined $dir) {
-        die "s4: %Error: view command requires URL and DIR argument\n";
+        $self->die_viewspec("In viewspec, view command requires URL and DIR argument\n");
+    }
+    # Allow @PEGREV
+    if ($url =~ s!\@(\d+)$!!) {
+	!$revtype or $self->die_viewspec("In viewspec, rev specified along with \@PEGREV: $url\n");
+	$revtype = 'rev';
+	$rev = $1;
     }
     # Replace ^
-    if ($url =~ s!^\^!!) {
-	my $root = $self->file_root(filename=>$self->{viewspec_path});
-	$url = $root.$url;
-	DEBUG "expanded url to $url\n" if $self->debug;
-    }
+    $url = $self->_viewspec_expand_root($url);
+    # Find a URL point we can reference
+    my $urlbase = $self->_viewspec_regexp_urlbase($url);
     # check syntax of revtype,rev
     if ($revtype eq 'rev') {
-        # string in $rev should be a revision number
+	# string in $rev should be a revision number
     } elsif ($revtype eq 'date') {
-        $self->ensure_valid_date_string($rev);
+	$self->ensure_valid_date_string($rev);
 	$rev = "{$rev}";
-	$rev = $self->rev_on_date(url=>$url, date=>$rev);
+	$rev = $self->rev_on_date(url=>$urlbase, date=>$rev);
     } elsif ($self->{revision}) {
 	$rev = $self->{revision};
     } else {
-        die "s4: %Error: parsing view line in viewspec, but revision variable is missing";
+	$self->die_viewspec("In viewspec, view line missing revision variable");
     }
     $self->ensure_valid_rev_string($rev);
-    # if there is already an action on this directory, abort.
-    foreach (@{$self->{vs_actions}}) {
-        if ($dir eq $_->{dir}) {
-	    die "s4: %Error: In Project.viewspec, one view line collides with a previous one for directory '$dir'. You must either remove one of the view commands or add an 'unview' command before it.";
+
+    foreach my $expref ($self->_viewspec_regexp_expand($url,$dir,$rev)) {
+	my $urlexp = $expref->{url};
+	my $direxp = $expref->{dir};
+
+	# if there is already an action on this directory, abort.
+	foreach (@{$self->{vs_actions}}) {
+	    if ($direxp eq $_->{dir}) {
+		$self->die_viewspec("In viewspec, one view line collides with a previous one for directory '$direxp'. You must either remove one of the view commands or add an 'unview' command before it.\n");
+	    }
 	}
+	my $action = {fileline => $self->{vs_fileline}};
+	$action->{cmd} = "switch";
+	$action->{url} = $urlexp;
+	$action->{dir} = $direxp;
+	$action->{rev} = $rev;
+	push @{$self->{vs_actions}}, $action;
     }
-    my $action;
-    $action->{cmd} = "switch";
-    $action->{url} = $url;
-    $action->{dir} = $dir;
-    $action->{rev} = $rev;
-    push @{$self->{vs_actions}}, $action;
 }
 
 sub _viewspec_cmd_unview {
     my $self = shift;
     my ($dir) = @_;
     DEBUG "_viewspec_cmd_unview: dir=$dir\n" if $self->debug;
-    my $ndel = 0;
-    for (my $i=0; $i <= $#{$self->{vs_actions}}; $i++) {
-	my $cmd = $self->{vs_actions}[$i]->{cmd};
-	my $actdir = $self->{vs_actions}[$i]->{dir};
-	DEBUG "checking $cmd on $actdir\n" if $self->debug;
-        if ($cmd eq 'switch' && $actdir =~ /^$dir/) {
-	    DEBUG "deleting action=$cmd on dir=$dir\n" if $self->debug;
-	    #DEBUG "before deleting, list was " . Dumper($vs_actions) if $self->debug;
-	    splice (@{$self->{vs_actions}}, $i, 1);
-	    #DEBUG "after deleting, list was " . Dumper($vs_actions) if $self->debug;
-	    $ndel++;
+    my @act_out = grep {
+	my $cmd = $_->{cmd};
+	my $actdir = $_->{dir};
+	DEBUG "  checking $cmd on $actdir\n" if $self->debug;
+	if ($cmd eq 'switch' && $actdir =~ m!^$dir([/\\]|$)!) {
+	    DEBUG "    deleting action=$cmd on dir=$dir\n" if $self->debug;
+	    0;
+	} else {
+	    1;
 	}
-    }
+    } @{$self->{vs_actions}};
+    $self->{vs_actions} = \@act_out;
 }
 
 sub _viewspec_cmd_include {
@@ -213,7 +302,7 @@ sub _viewspec_cmd_include {
     my ($file) = @_;
     DEBUG "_viewspec_cmd_include $file\n" if $self->debug;
     $self->{parse_viewspec_include_depth}++;
-    die "s4: %Error: Excessive viewspec includes. Is this infinite recursion?"
+    $self->die_viewspec("Excessive viewspec includes. Is this infinite recursion?")
          if $self->{parse_viewspec_include_depth} > 100;
     $self->_parse_viewspec_recurse (filename=>$file);
     $self->{parse_viewspec_include_depth}--;
@@ -287,6 +376,7 @@ sub apply_viewspec {
 		if (!$self->is_file_in_repo(url=>$action->{url}, revision=>$rev)) {
 		    die "s4: %Error: Cannot switch to nonexistent URL: $action->{url}";
 		}
+		DEBUG "s4: uuid_from_url $action->{url}\n" if $self->debug;
 		my $uuid = $self->client->uuid_from_url($action->{url});
 		if ($uuid ne $base_uuid) {
 		    die "s4: %Error: URL $action->{url} is in a different repository! What you need is an SVN external, which viewspecs presently do not support.";

@@ -53,7 +53,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.051';
+our $VERSION = '1.052';
 our $Info = 1;
 
 
@@ -87,7 +87,7 @@ our $Opt_Disregard_Ignore_List = 0;
 our $Propclear_bash_func = q{
 # remove all svn properties from a file or dir
 function propclear {
-  for f in `svn proplist $1|tail +2`; do
+  for f in `svn proplist $1|tail -n +2`; do
     svn propdel $f $1;
   done
 }
@@ -635,17 +635,23 @@ sub _emit_propset {
     my ($path, $name, $value) = @_;
     # name or esp. value could conceivably be things that are impossible to quote.
     if (single_quotable($name) && single_quotable($value)) {
-	return "svn propset '$name' '$value' $path\n";
+	return "svn propset ".single_quote($name)." ".single_quote($value)." $path\n";
     } else {
-        print "%Error: property name($name) or value($value) has strange characters in $path\n";
+        warn "%Error: property name($name) or value($value) has strange characters in $path\n";
     }
 }
 
 sub single_quotable {
-    return 0 if /'/;
+    my ($v) = @_;
+    return 0 if $v =~ /\'/;
     # all chars ascii 0x20 through 0x7e (space through tilde)
-    return 1 if /^[ -~]*$/;
+    return 1 if $v =~ /^[ -~\t\n\r]*$/;
     return 0;   # some wierd chars in there
+}
+
+sub single_quote {
+    my ($v) = @_;
+    return "'".$v."'";
 }
 
 sub nonzero {

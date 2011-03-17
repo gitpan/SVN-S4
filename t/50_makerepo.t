@@ -24,14 +24,14 @@ ok(1, "create");
 run_system("svnadmin load $REPOFN < t/50_makerepo.dump");
 ok(1, "load");
 
-run_system("svn co $REPO/top test_dir/top");
+run_system("svn co $REPO test_dir/all");
 ok(1, "co");
 
 run_system("svn co $REPO/top/trunk test_dir/trunk");
 ok(1, "co");
 
 print "If you need to change the initial repository, after this step\n";
-print "make your changes to test_dir/top, then:\n";
+print "make your changes to test_dir/all, then:\n";
 # svn co file:`pwd`/test_dir/repo repo_co
 print "   svnadmin dump test_dir/repo > t/50_makerepo.dump\n";
 

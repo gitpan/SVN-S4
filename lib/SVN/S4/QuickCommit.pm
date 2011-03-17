@@ -17,7 +17,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.051';
+our $VERSION = '1.052';
 
 our @Quick_Commit_status_data;
 our $Quick_Commit_self;

@@ -41,5 +41,8 @@ t/86_s4_fixprop.t
 t/87_s4_cat_or_mods.t
 t/88_s4_snapshot.t
 t/89_s4_view.t
+t/95_s4_viewhier.t
+t/96_s4_viewpeg.t
+t/97_s4_viewwild.t
 t/test_utils.pl
 test_this_s4.template

@@ -10,10 +10,11 @@ use IO::File;
 use Test::More;
 use Cwd;
 
-BEGIN { plan tests => 12 }
+BEGIN { plan tests => 14 }
 BEGIN { require "t/test_utils.pl"; }
 
 system("/bin/rm -rf test_dir/tdirhier");
+system("/bin/rm -rf test_dir/tdirquiet");
 system("/bin/rm -rf test_dir/viewhier");
 
 chdir "test_dir" or die;
@@ -40,6 +41,13 @@ $files = ['tdirhier',
 	  'tdirhier/tsub3/tsub3__file',
 	  ];
 is_deeply(file_list("tdirhier"), $files, "check files in tdirhier");
+
+#--------
+# Check that --quiet is quiet
+like_cmd("${S4} co --quiet $REPO/top/trunk/tdirhier tdirquiet",
+	 qr/^$/o);
+like_cmd("${S4} update --quiet tdirquiet",
+	 qr/^$/o);
 
 #---------
 like_cmd("${S4} update tdirhier",

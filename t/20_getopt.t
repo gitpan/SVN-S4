@@ -9,7 +9,7 @@ use strict;
 use Test::More;
 use Cwd;
 
-BEGIN { plan tests => 34 }
+BEGIN { plan tests => 36 }
 BEGIN { require "t/test_utils.pl"; }
 
 our $Debug;
@@ -72,10 +72,35 @@ ck('switch   --relocate --revision REV --non-recursive --quiet --diff3-cmd CMD -
 ck('unlock   --targets FILENAME --username USER --password PASS --no-auth-cache --non-interactive --config-dir DIR --force PATH');
 ck('update   --revision REV --non-recursive --quiet --diff3-cmd CMD --username USER --password PASS --no-auth-cache --non-interactive --config-dir DIR --ignore-externals PATH');
 
+ck_deep('co -N --username USER url@12345 PATH',
+	{'--non-recursive' => 1,
+	 '--username' => 1,
+	 'url' => [ 'url', 'PATH' ],
+	 'urlrev' => [ '12345', undef ],
+	 'username' => [ 'USER' ]
+	 });
+
+ck_deep('co -N --username USER url@12345@ PATH',
+	{'--non-recursive' => 1,
+	 '--username' => 1,
+	 'url' => [ 'url@12345@', 'PATH' ],
+	 'urlrev' => [ undef, undef ],
+	 'username' => [ 'USER' ]
+	 });
+
 sub ck {
     my $cmd = shift;
     print "\t$cmd\n" if $Debug;
     my %hash = $opt->hashCmd(split /[ \t]+/, $cmd);
     use Data::Dumper; print Dumper(\%hash) if $Debug;
     ok (\%hash, "Hash for $cmd");
+}
+
+sub ck_deep {
+    my $cmd = shift;
+    my $deeply = shift;
+    print "\t$cmd\n" if $Debug;
+    my %hash = $opt->hashCmd(split /[ \t]+/, $cmd);
+    use Data::Dumper; print Dumper(\%hash) if $Debug;
+    is_deeply (\%hash, $deeply, "Hash for $cmd");
 }

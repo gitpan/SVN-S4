@@ -16,7 +16,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.052';
+our $VERSION = '1.053';
 our $Info = 1;
 
 
@@ -237,10 +237,12 @@ sub _viewspec_cmd_view {
         $self->die_viewspec("In viewspec, view command requires URL and DIR argument\n");
     }
     # Allow @PEGREV
-    if ($url =~ s!\@(\d+)$!!) {
+    my ($pegurl,$pegrev) = SVN::S4::Getopt->parse_pegrev($url);
+    $url = $pegurl;
+    if ($pegrev) {
 	!$revtype or $self->die_viewspec("In viewspec, rev specified along with \@PEGREV: $url\n");
 	$revtype = 'rev';
-	$rev = $1;
+	$rev = $pegrev;
     }
     # Replace ^
     $url = $self->_viewspec_expand_root($url);
@@ -371,6 +373,7 @@ sub apply_viewspec {
 	    my $cleandir = $self->clean_filename("$params{path}/$reldir");
 	    if ($url && $url eq $action->{url}) {
 		$cmd = "$self->{svn_binary} update $cleandir -r$rev";
+		$cmd .= ' --quiet' if $self->quiet;
 		$verb = "Updating";
 	    } else {
 		if (!$self->is_file_in_repo(url=>$action->{url}, revision=>$rev)) {
@@ -382,6 +385,7 @@ sub apply_viewspec {
 		    die "s4: %Error: URL $action->{url} is in a different repository! What you need is an SVN external, which viewspecs presently do not support.";
 		}
 		$cmd = "$self->{svn_binary} switch $action->{url} $cleandir -r$rev";
+		$cmd .= ' --quiet' if $self->quiet;
 		$verb = "Switching";
 	    }
 	    if (!$self->quiet) {
@@ -414,11 +418,11 @@ sub _undo_switches {
     # Find the list of switchpoints that S4 created
     # If it can't be found, just return.
     if (!$self->{prev_state}) {
-        DEBUG "s4: _undo_switches cannot find prev_state, giving up\n" if $self->debug;
+        DEBUG "s4: _undo_switches cannot find prev_state, no undo needed\n" if $self->debug;
 	return;
     }
     if (!$self->{prev_state}->{viewspec_managed_switches}) {
-        DEBUG "s4: _undo_switches cannot find previous list of viewspec_managed_switches, giving up\n" if $self->debug;
+        DEBUG "s4: _undo_switches cannot find previous list of viewspec_managed_switches, no undo needed\n" if $self->debug;
 	return;
     }
     my @prevlist = sort @{$self->{prev_state}->{viewspec_managed_switches}};

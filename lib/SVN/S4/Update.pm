@@ -6,6 +6,7 @@ require 5.006_001;
 
 use strict;
 use Carp;
+use File::Spec;
 use IO::Dir;
 use IO::File;
 use Cwd;
@@ -16,7 +17,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.052';
+our $VERSION = '1.053';
 our $Info = 1;
 
 
@@ -44,6 +45,7 @@ sub update {
 	die "s4: %Error: s4 update needs revision" unless defined $params{revision};
 	my @cmd = (split(/\s+/,$self->{svn_binary}), 'update', @paths);
 	push @cmd, ('--revision', $params{revision});
+	push @cmd, ('--quiet') if $self->quiet;
 	$params{fallback_cmd} = \@cmd;
     }
     if ($#paths > 0) {
@@ -108,6 +110,7 @@ sub update {
 	# Also, it breaks when given a symlink as a target, instead of the symlink's target
 	my $opt = SVN::S4::Getopt->new;
 	my @cmd = split(/\s+/,$self->{svn_binary});
+	push @cmd, ('--quiet') if $self->quiet;
 	push @cmd, $opt->formCmd('update', { %{$self},
 					     revision => $rev,
 					     path => [$abspath],
@@ -129,6 +132,7 @@ sub checkout {
 	die "s4: %Error: s4 checkout needs url,path,revision"
 	   unless defined $params{url} && defined $params{path} && defined $params{revision};
 	my @cmd = (split(/\s+/,$self->{svn_binary}), 'checkout', $params{url}, $params{path});
+	push @cmd, ('--quiet') if $self->quiet;
 	push @cmd, ('--revision', $params{revision});
 	$params{fallback_cmd} = \@cmd;
     }
@@ -137,16 +141,20 @@ sub checkout {
     my $viewspec_url = "$params{url}/$self->{viewspec_file}";
     my $found_viewspec = $self->is_file_in_repo (url => $viewspec_url);
 
-    # A checkout under an existing checkout is usually an error
+    # A checkout where there is an existing checkout is usually an error
     # Some scripts expect this to be allowed, so we make it configurable
     # However, viewspecs mess up, so never allow with a viewspec top
     my $co_under_co = $self->config_get_bool('s4', 'co-under-co');
-    $co_under_co = 1 if !defined $co_under_co;
-    if (-e "$params{path}/.svn"
-	&& (!$co_under_co || $found_viewspec || -e "$params{path}/$self->{viewspec_file}")) {
-	    die "s4: %Error: Stubbornly refusing to checkout under existing checkout; you probably wanted 'update'\n";
+    my $no_co_under_co = (!defined $co_under_co ? 0 : !$co_under_co);
+    $no_co_under_co = ($no_co_under_co || $found_viewspec || -e "$params{path}/$self->{viewspec_file}");
+    if (-e "$params{path}/.svn" && $no_co_under_co) {
+	die "s4: %Error: Stubbornly refusing to checkout on top of existing checkout; you probably wanted 'update'\n";
     }
-
+    my $parent = $self->_parent_of_path($params{path});
+    if (-e "$parent/.svn" && $found_viewspec) {
+	die "s4: %Error: Stubbornly refusing to checkout path with viewspec, under a parent SVN directory\n";
+	# Edit the viewspec instead.  Otherwise when they update we'll ignore the viewspec and get confused.
+    }
     if (!$found_viewspec) {
         DEBUG "checkout tree with no viewspec. checkout normally\n" if $self->debug;
 	return $self->run (@{$params{fallback_cmd}});
@@ -189,6 +197,38 @@ sub checkout {
     $self->apply_viewspec (path=>$params{path});
     $self->save_viewspec_state (path=>$params{path});
 }
+
+sub merge {
+    my $self = shift;
+    my %params = (#path=>,
+		  #fallback_cmd=>,
+                  @_);
+
+    my $abspath = $self->abs_filename($params{path});
+    DEBUG "merge of path $abspath\n" if $self->debug;
+    my $found_viewspec = $self->dir_uses_viewspec($abspath);
+    my $merge_under_view = $self->config_get_bool('s4', 'merge-under-view');
+    $merge_under_view = 0 if !defined $merge_under_view;
+    if (!$found_viewspec || $merge_under_view) {
+        DEBUG "merge with no viewspec. merge normally\n" if $self->debug;
+	return $self->run (@{$params{fallback_cmd}});
+    } else {
+	DEBUG "Found a viewspec file.\n" if $self->debug;
+	die "%Error: s4 merge not allowed under viewed area.\n"
+	    ."Instead you should checkout a non-viewed area, and merge there.\n";
+    }
+}
+
+sub _parent_of_path {
+    my $self = shift;
+    my ($path) = @_;
+    return if $path eq '.';
+    if (! ($path =~ s/\/[^\/]+$//)) {
+        $path = '.';
+    }
+    return $path;
+}
+
 
 ######################################################################
 ### Package return

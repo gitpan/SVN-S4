@@ -29,7 +29,7 @@ use vars qw ($VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.052';
+$VERSION = '1.053';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -121,6 +121,8 @@ if ($Opt_Cmd eq "help-summary") {
     cmd_fixprop();
 } elsif ($Opt_Cmd eq "info-switches") {
     cmd_info_switches();
+} elsif ($Opt_Cmd eq "merge") {
+    cmd_merge();
 } elsif ($Opt_Cmd eq "quick-commit") {
     cmd_quick_commit();
 } elsif ($Opt_Cmd eq "scrub") {
@@ -214,6 +216,14 @@ sub raw_svn_command {
     return \@cmd;
 }
 
+sub _clean_path {
+    # SVN throws some odd errors with trailing /'s on paths
+    my $path = shift;
+    return undef if !defined $path;
+    $path =~ s!/$!!;
+    return $path;
+}
+
 sub cmd_add {
     DEBUG "cmd_add ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     #Ignore: !$opts{unknown} or die "%Error: s4 add: Unknown argument: $opts{unknown}[0]\n";
@@ -229,7 +239,7 @@ sub cmd_add {
 
     if ($fp) {
 	foreach my $filename (@{$opts{path}}) {
-	    $s4->fixprops(filename=>$filename,
+	    $s4->fixprops(filename=>_clean_path($filename),
 			  recurse=>!$opts{"--non-recursive"},
 			  personal=>$opts{"--personal"});
 	}
@@ -242,7 +252,7 @@ sub cmd_cat_or_mods {
 
     $opts{path} or die "%Error: s4 cat-or-mods: File path is required\n";
     foreach my $filename (@{$opts{path}}) {
-	$s4->cat_or_mods(filename=>$filename,);
+	$s4->cat_or_mods(filename=>_clean_path($filename),);
     }
 }
 
@@ -252,7 +262,7 @@ sub cmd_fixprop {
 
     $opts{path} or die "%Error: s4 fixprop: File path is required\n";
     foreach my $filename (@{$opts{path}}) {
-	$s4->fixprops(filename=>$filename,
+	$s4->fixprops(filename=>_clean_path($filename),
 		      # --recursive is default, so only check for non-recursive
 		      recurse=>(!$opts{"--non-recursive"}),
 		      personal=>$opts{"--personal"});
@@ -272,7 +282,8 @@ sub cmd_update {
     DEBUG "cmd_update ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 update: Unknown argument: $opts{unknown}[0]\n";
     # If no paths specified, update the current directory.
-    $s4->update (revision=>$opts{revision}[0], paths=>$opts{path},
+    $s4->update (revision=>($opts{revision}[0]||$opts{pathrev}[0]),
+		 paths=>_clean_path($opts{path}),
 		 fallback_cmd=>raw_svn_command());
 }
 
@@ -288,10 +299,13 @@ sub cmd_switch {
     }
     # Now we know that arg array means "URL PATH";
     my ($url,$path) = @{$opts{arg}};
+    $url = _clean_path($url);
     $path = "." if !defined $path;
     if (!defined $url || !defined $path) {
         return cmd_svn();  # no viewspec checking
     }
+    my $rev = ($opts{revision}[0]||$opts{argrev}[0]);
+
     # FIXME: great potential for performance improvement here.  If a viewspec
     # will be present after the switch, do nonrecursive switch first and then
     # parse viewspec, and let that inform how we proceed.
@@ -300,7 +314,7 @@ sub cmd_switch {
     if (-d $path) {
         cmd_svn();
 	$s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
-	return check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
+	return check_viewspec_after_svn_cmd(path=>$path, revision=>$rev);
     }
     # Aha, now we can help out by making the switchpoint at $path.
     # Identify the lowest-level directory that is a working copy, and
@@ -323,7 +337,7 @@ sub cmd_switch {
         DEBUG "Cannot find working copy at any point above $path. Run normal command.\n" if is_debug;
         cmd_svn();
 	$s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
-	return check_viewspec_after_svn_cmd (path=>$path, revision=>$opts{revision}[0]);
+	return check_viewspec_after_svn_cmd (path=>$path, revision=>$rev);
 
     }
     print "s4: Creating empty directory to switch into: $path\n";
@@ -333,14 +347,14 @@ sub cmd_switch {
     # Now that we made the switchpoint, run the normal command.
     cmd_svn ();
     $s4->clear_viewspec_state (path=>$path);  # switch wipes out switches
-    check_viewspec_after_svn_cmd (path=>$path, revision=>$opts{revision}[0]);
+    check_viewspec_after_svn_cmd (path=>$path, revision=>$rev);
 }
 
 sub check_viewspec_after_svn_cmd {
     my %params = (#path=>,
                   #revision=>,
                   @_);
-    my $path = $params{path};
+    my $path = _clean_path($params{path});
     # Is there a viewspec file? If so parse and update accordingly.
     if (!$s4->dir_uses_viewspec($path)) {
         DEBUG "after switch, there is no viewspec. done.\n" if $s4->debug;
@@ -375,6 +389,7 @@ sub cmd_checkout {
     # in the $opts{url}.
     unless ($opts{url}) { die "%Error: s4 checkout with no arguments!"; }
     my ($url,$path) = @{$opts{url}};
+    $url = _clean_path($url);
     my $nopts = scalar @{$opts{url}};
     unless (defined $url && ($nopts == 1 || $nopts == 2)) {
         die "%Error: s4 checkout only supports these forms: checkout URL | checkout URL PATH";
@@ -386,9 +401,19 @@ sub cmd_checkout {
 	$path = $url;
 	$path =~ s/.*\///;
     }
-    $s4->checkout (revision=>$opts{revision}[0],
+    $s4->checkout (revision=>($opts{revision}[0]||$opts{urlrev}[0]),
 		   url=>$url, path=>$path,
 		   fallback_cmd=>raw_svn_command());
+}
+
+sub cmd_merge {
+    DEBUG "cmd_merge ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
+
+    my @urls = @{$opts{pathorurl}};
+    my $path_or_url = $urls[$#urls];
+    my $path = (-e $path_or_url) ? $path_or_url : '.';  # If not a path, presume a URL and override path
+    $s4->merge (path=>$path,
+		fallback_cmd=>raw_svn_command());
 }
 
 # Usage: s4 quick_commit PATH
@@ -396,7 +421,7 @@ sub cmd_quick_commit {
     DEBUG "cmd_quick_commit ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 quick_commit: Unknown argument: $opts{unknown}[0]\n";
     DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
-    my $path = $opts{path}[0];
+    my $path = _clean_path($opts{path}[0]);
     $path = "." if !defined $path;
     $s4->quick_commit (path => $path,
 		       recurse => (!$opts{"--non-recursive"}),
@@ -410,7 +435,7 @@ sub cmd_snapshot {
     DEBUG "cmd_snapshot ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 snapshot: Unknown argument: $opts{unknown}[0]\n";
     #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
-    my $path = $opts{path}[0];
+    my $path = _clean_path($opts{path}[0]);
     $path = "." if !defined $path;
     my $no_ignore = $opts{'--no-ignore'} || 0;
     $s4->snapshot (path=>$path, disregard_ignore_list=>$no_ignore, scrub_cmd=>"\$S4 scrub");
@@ -421,15 +446,19 @@ sub cmd_scrub {
     DEBUG "cmd_scrub ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 scrub: Unknown argument: $opts{unknown}[0]\n";
     #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
-    my $path = $opts{path}[0];
+    my $path = _clean_path($opts{path}[0]);
+    my $rev = ($opts{revision}[0]||$opts{pathrev}[0]);
     if (!defined $path) {
 	print "%Error: s4 scrub requires the path of the area to scrub.\n";
 	die "%Error: s4 scrub: Please read the help messages very carefully before using scrub!";
     }
     ###$path = "." if !defined $path;  # make them type it
-    $s4->scrub (path=>$path, revision=>$opts{revision}[0], url=>$opts{url}[0],
+    $s4->scrub (path=>$path,
+		revision=>$rev,
+		url=>$opts{url}[0],
 		verbose=>(!defined $opts{'--noverbose'}));
-    check_viewspec_after_svn_cmd(path=>$path, revision=>$opts{revision}[0]);
+    check_viewspec_after_svn_cmd(path=>$path,
+				 revision=>$rev);
 }
 
 sub cmd_workpropdel {
@@ -627,6 +656,15 @@ Prints a summary of all Subversion and S4 commands.
 Given a working file path, prints a non-recursive "svn info" at the path
 specified, plus every switch point under the path.  Given an URL prints the
 info on any views underneath that URL.
+
+=head2 merge
+
+s4 merge behaves exactly the same way as svn merge, unless the top
+directory that you update contains a file called Project.viewspec.  If
+Project.viewspec is present, s4 will print an error message.  Merging is
+not supported in s4 views, as SVN creates many extranious svn:mergeinfo
+properties.  Instead you should checkout a non-viewed area, and merge
+there.
 
 =head2 quick-commit|qci PATH
 

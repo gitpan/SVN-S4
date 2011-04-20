@@ -3,6 +3,15 @@ Revision history for Perl extension SVN::S4
 The contributors that suggested a given feature are shown in [].  [by ...]
 indicates the contributor was also the author of the fix; Thanks!
 
+* SVN::S4 1.053 2011/04/20
+
+**** Support URL@REV format with viewspecs.  [Brian Hunter]
+
+**** Print error when do merging of viewed area.  See 's4' documentation.
+
+**** Fix 's4 update' with viewspec ignoring --quiet. [Dan Katz]
+
+
 * SVN::S4 1.052 2011/03/17
 
 **   Viewspecs may live in existing trees, which will be checked out completely,

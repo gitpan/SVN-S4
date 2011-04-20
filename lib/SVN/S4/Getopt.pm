@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.052';
+our $VERSION = '1.053';
 
 our %_Aliases =
     (
@@ -104,7 +104,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PATH...')},	# PATH[@REV]
+	       .' PATH@PATHREV...')},	# PATH[@REV]
   'cat'		=> {
       args => (''
 	       .' [-r|--revision REV]'
@@ -116,7 +116,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PATH...')},	# PATH[@REV]
+	       .' PATH@PATHREV...')},	# PATH[@REV]
   'changelist'	=> {
       args => (''
 	       .' [--changelist ARG'		# 1.6
@@ -133,7 +133,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PATH...')},	# PATH[@REV]
+	       .' PATH@PATHREV...')},	# PATH[@REV]
   'checkout'	=> {
       s4_changed => 1,
       args => (''
@@ -151,7 +151,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' URL... [PATH]')},  # URL[@REV]  path will parse to be last element in {url}
+	       .' URL@URLREV... [PATH]')},  # URL[@REV]  path will parse to be last element in {url}
   'cleanup'	=> {
       args => (''
 	       .' [--diff3-cmd CMD]'
@@ -242,10 +242,10 @@ our %_Args =
 	       .' [--diff-w|-w]'	# 1.4
 	       .' [--force]'		# 1.6
 	       .' [--ignore-eol-style]'	# 1.4
-	       .' [--new NEWPATH]'		#PATH[@REV]
+	       .' [--new NEWPATH@NEWPATHREV]'	#PATH[@REV]
 	       .' [--no-diff-deleted]'
 	       .' [--notice-ancestry]'
-	       .' [--old OLDPATH]'		#PATH[@REV]
+	       .' [--old OLDPATH@OLDPATHREV]'	#PATH[@REV]
 	       .' [--summarize]'	# 1.4
 	       .' [--xml]'		# 1.6
 	       .' [-N|--non-recursive]'
@@ -278,7 +278,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PATHORURL [PATH]')},  # [@PEGREV]
+	       .' PATHORURL [PATH@PATHREV]')},  # [@PEGREV]
   'help'	=> {
       args => (''
 	       .' [--version]'
@@ -345,7 +345,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' [PATH...]')},		# PATH[@REV]...
+	       .' [PATH@PATHREV...]')},		# PATH[@REV]...
   'lock'	=> {
       args => (''
 	       .' [--encoding ENC]'
@@ -389,6 +389,7 @@ our %_Args =
 	       .' [--config-option ARG]'	# 1.6
 	       .' PATHORURL [PATH...]')},
   'merge'	=> {
+      s4_changed => 1,
       args => (''#'merge        PATHORURL1[@N]  PATHORURL2[@M]  [WCPATH]'
 	       #'merge -r N:M SOURCE[@REV]                    [WCPATH]'
 	       .' [--accept ARG]'		# 1.6
@@ -412,7 +413,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PATHORURL...')},
+	       .' PATHORURL@PATHORURLREV...')},
   'mergeinfo'	=> {
       args => (''#mergeinfo SOURCE[@REV] [TARGET[@REV]]
 	       .' [--show-revs ARG]'		# 1.6
@@ -425,7 +426,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PATHORURL...')},
+	       .' PATHORURL@PATHORURLREV...')},
   'mkdir'	=> {
       args => (''
 	       .' [--editor-cmd EDITOR]'
@@ -524,7 +525,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PROPNAME [PATHORURL...]')},
+	       .' PROPNAME [PATHORURL@PATHORURLREV...]')},
   'proplist'	=> {
       args => (''#'proplist [PATH[@REV]...]'
 	       #'proplist -revprop -r REV [URL]'
@@ -544,7 +545,7 @@ our %_Args =
 	       .' [--trust-server-cert]'	# 1.6
 	       .' [--config-dir DIR]'
 	       .' [--config-option ARG]'	# 1.6
-	       .' PROPNAME [PATHORURL...]')},
+	       .' PROPNAME [PATHORURL@PATHORURLREV...]')},
   'propset'	=> {
       args => (''#'propset PROPNAME [PROPVAL | -F VALFILE] PATH...'
 	       #'propset PROPNAME --revprop -r REV [PROPVAL | -F VALFILE] [URL]'
@@ -838,6 +839,18 @@ sub dealias {
     return $_Aliases{$cmd}||$cmd;
 }
 
+sub parse_pegrev {
+    my $self = shift;
+    my $arg = shift;
+    if ($arg =~ /\@$/) {
+	return ($arg, undef);
+    } elsif ($arg =~ /^(.*)\@([0-9]+|HEAD|BASE|COMMITTED|PREV)$/) {
+	return ($1,$2);
+    } else {
+	return ($arg, undef);
+    }
+}
+
 sub _parse_template {
     my $self = shift;
     my $cmd = shift;
@@ -1012,10 +1025,23 @@ sub hashCmd {
 	if ($cmdParsed[$i] =~ /^(-.*)$/) {
 	    $hashed{$1} = 1;
 	} else {
-	    if (!ref $hashed{$cmdParsed[$i]}) {
-		$hashed{$cmdParsed[$i]} = [$args[$i]];
+	    my $cmdname = $cmdParsed[$i];
+	    my $arg = $args[$i];
+	    if ($cmdname =~ /(.*)@(.*)$/) {
+		$cmdname = $1;
+		my $pegcmd = $2;
+		my ($pegarg,$pegrev) = $self->parse_pegrev($arg);
+		$arg = $pegarg;
+		if (!ref $hashed{$pegcmd}) {
+		    $hashed{$pegcmd} = [$pegrev];
+		} else {
+		    push @{$hashed{$pegcmd}}, $pegrev;
+		}
+	    }
+	    if (!ref $hashed{$cmdname}) {
+		$hashed{$cmdname} = [$arg];
 	    } else {
-		push @{$hashed{$cmdParsed[$i]}}, $args[$i];
+		push @{$hashed{$cmdname}}, $arg;
 	    }
 	}
     }

@@ -35,7 +35,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.052';
+our $VERSION = '1.053';
 our $Info = 1;
 
 
@@ -72,6 +72,7 @@ sub _scrub_main {
 		  #verbose=>1,
                   @_);
     $Scrub_Statfunc_Debug = $self->debug || 0;
+    $params{revision} = "HEAD" if !defined $params{revision};
     # If there's not already a svn tree there, just erase it and check out a new
     # one.
     my $existing_tree_url = $self->file_url (filename=>$params{path}, assert_exists=>0);
@@ -79,27 +80,20 @@ sub _scrub_main {
 	if (!defined $params{url}) {
 	    die "s4: %Error: You must specify --url since there isn't an existing source tree at $params{path}\n";
 	}
-	$params{revision} = "HEAD" if !defined $params{revision};
 	if (-d $params{path}) {
-	    print "Existing directory not usable.  Removing it and starting over.\n";
+	    print "Existing directory not usable.  Removing it and starting over.\n" if !$self->quiet;
 	}
-	print "Checking out revision $params{revision} of $params{url}: ";
+	print "Checking out revision $params{revision} of $params{url}: " if !$self->quiet;
 	flush STDOUT;
 	$self->client->notify(\&_scrub_update_callback);
 	$self->_wipe_tree_and_checkout($params{path}, $params{url}, $params{revision});
 	$self->client->notify(undef);
-	print "\n";
+	print "\n" if !$self->quiet;
 	exit 0;
     }
     $params{url} = $existing_tree_url if !defined $params{url};
 
     my $canonical_path = $self->abs_filename ($params{path});
-    # find base revision, use that as a default if $params{revision} not specified.
-    if (!defined $params{revision}) {
-	$params{revision} = $self->get_svn_rev ($params{path});
-	die "s4: %Error: Could not find revision number of tree at $params{path}" if !defined $params{revision};
-    }
-
     #print "Reverting tree at $params{path}\n";
     #print "Revision: $params{revision}\n";
     #print "URL: $params{url}\n";
@@ -162,10 +156,10 @@ sub _scrub_main {
 
 sub _cleanup_stage {
     my ($self, $params, $path) = @_;
-    print "Cleaning... ";
+    print "Cleaning... " if !$self->quiet;
     flush STDOUT;
     my @unclean = $self->_find_unclean_stuff ($path);
-    print "\n";
+    print "\n" if !$self->quiet;
     flush STDOUT;
     if ($#unclean >= 0) {
 	$self->_cleanup ($params, $path, @unclean);

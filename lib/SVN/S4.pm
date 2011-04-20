@@ -29,7 +29,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.052';
+our $VERSION = '1.053';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);

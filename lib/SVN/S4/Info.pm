@@ -15,7 +15,7 @@ use vars qw($AUTOLOAD);
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.052';
+our $VERSION = '1.053';
 
 #######################################################################
 # Methods

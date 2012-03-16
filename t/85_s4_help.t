@@ -9,17 +9,31 @@ use strict;
 use Test::More;
 use Cwd;
 
-BEGIN { plan tests => 4 }
+BEGIN { plan tests => 5 }
 BEGIN { require "t/test_utils.pl"; }
 
-run_system("${PERL} s4 help");
-ok(1,'help');
-
-run_system("${PERL} s4 help add");  # Modified cmd
-ok(1,'add');
-
-run_system("${PERL} s4 help fixprop");  # New cmd
-ok(1,'fixprop');
-
-run_system("${PERL} s4 help rm");  # Unchanged cmd
-ok(1,'rm');
+{
+    my $cmd = "${PERL} s4 help";
+    my $help = `$cmd`;
+    like ($help, qr/s4 unique commands/i, 'help');
+}
+{
+    my $cmd = "${PERL} s4 help add";  # Modified cmd
+    my $help = `$cmd`;
+    like ($help, qr/--no-fixprop/, 'help add');
+}
+{
+    my $cmd = "${PERL} s4 help fixprop";  # New cmd
+    my $help = `$cmd`;
+    like ($help, qr/fixprop/, 'help fixprop');
+}
+{
+    my $cmd = "${PERL} s4 help rm";
+    my $help = `$cmd`;
+    like ($help, qr/delete.*remove files/i, 'help rm');
+}
+{
+    my $cmd = "${PERL} s4 --orig help fixprop 2>&1";  # New command, with --orig mode
+    my $help = `$cmd`;
+    like ($help, qr/unknown command/i, 'help --orig');
+}

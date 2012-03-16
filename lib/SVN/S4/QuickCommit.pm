@@ -17,7 +17,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.053';
+our $VERSION = '1.054';
 
 our @Quick_Commit_status_data;
 our $Quick_Commit_self;
@@ -43,7 +43,7 @@ sub quick_commit {
     #		debug
     #		quiet
     #		dryrun
-    my %params = (#path=>,
+    my %params = (#paths=>[],
 		  recurse => 1,
 		  file => [],
 		  message => [],
@@ -53,7 +53,7 @@ sub quick_commit {
     $Quick_Commit_self = $self;
 
     my @newpaths;
-    foreach my $path ($params{path}) {
+    foreach my $path (@{$params{paths}}) {
 	push @newpaths, $self->abs_filename($path);
     }
 
@@ -139,7 +139,7 @@ SVN::S4::QuickCommit - commit only changed files
 
 Scripts:
   use SVN::S4::QuickCommit;
-  $svns4_object->quick_commit (path=>I<path>);
+  $svns4_object->quick_commit (paths=>I<path>);
 
 =head1 DESCRIPTION
 
@@ -149,7 +149,7 @@ SVN::S4::QuickCommit
 
 =over 4
 
-=item $s4->quick_commit(path=>I<path>);
+=item $s4->quick_commit(paths=>I<path>);
 
 =back
 

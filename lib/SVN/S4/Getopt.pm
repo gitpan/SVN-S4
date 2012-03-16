@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.053';
+our $VERSION = '1.054';
 
 our %_Aliases =
     (

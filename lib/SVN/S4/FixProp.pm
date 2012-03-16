@@ -15,7 +15,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.053';
+our $VERSION = '1.054';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
@@ -77,8 +77,10 @@ sub fixprops {
 		  personal => undef,
 		  @_);
 
+    DEBUG "fixprops (filename=>$params{filename})\n" if $self->debug;
     my $filename = $params{filename};
     $filename = getcwd()."/".$filename if $filename !~ m%^/%;
+    $filename = $self->abs_filename($filename);
     _fixprops_recurse($self,\%params,$filename);
 }
 
@@ -93,6 +95,7 @@ sub _fixprops_recurse {
 	if (!-r "$dir/.svn") {
 	    # silently ignore a non a subversion directory
 	} else {
+	    $self->_fixprops_add_ignore($dir);
 	    my $dh = new IO::Dir $dir or die "s4: %Error: Could not directory $dir.\n";
 	    while (defined (my $basefile = $dh->read)) {
 		next if $basefile eq '.' || $basefile eq '..';
@@ -114,14 +117,7 @@ sub _fixprops_recurse {
     }
     else {
 	# File
-	if ($filename =~ m!^(.*)/(\.cvsignore|\.gitignore)$!) {
-	    my $dir = $1;
-	    DEBUG ".cvsignore check $dir\n" if $self->debug;
-	    if ($self->file_url(filename=>$dir)) {
-		$self->_fixprops_add_ignore($dir);
-	    }
-	}
-	elsif (SVN::S4::FixProp::file_has_keywords($filename)) {
+	if (SVN::S4::FixProp::file_has_keywords($filename)) {
 	    if ($self->file_url(filename=>$filename)
 		&& !defined ($self->propget_string(filename=>$filename,
 						   propname=>"svn:keywords"))
@@ -131,6 +127,7 @@ sub _fixprops_recurse {
 				      propval=>$param->{keyword_propval});
 	    }
 	}
+	$self->_fixprops_autoprops($filename);
     }
 }
 
@@ -138,13 +135,88 @@ sub _fixprops_add_ignore {
     my $self = shift;
     my $dir = shift;
 
-    my $ignores = (SVN::S4::Path::wholefile("$dir/.cvsignore")
-		   || SVN::S4::Path::wholefile("$dir/.gitignore"));
-    if (defined $ignores) { # else not found
+    $dir =~ s!/\.$!!;
+    my $ignores = "";
+    my $went_up;
+    for (my $updir = $dir; 1;) {
+	$ignores .= $self->_fixprops_read_ignore($updir, $went_up++);
+	$updir =~ m!(.*)/([^/]+)$! or last;
+	$updir = $1;
+	$self->dir_uses_svn($updir) or last;
+    }
+    if ($ignores && $ignores !~ /^\s*$/) { # else not found
 	$ignores .= "\n";
 	$ignores =~ s/[ \t\n\r\f]+/\n/g;
+	$ignores =~ s/^\n+//g;
+	$ignores =~ s/\n\n+/\n/g;
 	$self->propset_string(filename=>$dir, propname=>"svn:ignore", propval=>$ignores);
     }
+}
+
+sub _fixprops_read_ignore {
+    my $self = shift;
+    my $dir = shift;
+    my $recursive_only = shift;
+    my $val = $self->{_fixprops_read_ignore_cache}{$dir};
+    if (!defined $val) {
+	$val = (SVN::S4::Path::wholefile("$dir/.cvsignore")
+		       || SVN::S4::Path::wholefile("$dir/.gitignore"));
+	$val = "" if !defined $val;
+	$self->{_fixprops_read_ignore_cache}{$dir} = $val;
+    }
+    if ($recursive_only) {
+	if ($val =~ /\[recursive\]/) {
+	    $val =~ s/.*\[recursive\]//g;
+	} else {
+	    $val = "";
+	}
+    } else {
+	$val =~ s/\[recursive\]//g;
+    }
+    return $val;
+}
+
+sub _fixprops_autoprops {
+    my $self = shift;
+    my $filename = shift;
+    my $val;
+    for (my $updir = $filename; 1;) {
+	$updir =~ m!(.*)/([^/]+)$! or last; $updir=$1;
+	$self->dir_uses_svn($updir) or last;
+	$val = $self->_fixprops_read_autoprops($updir);
+	last if $val ne "";
+    }
+    return if !$val || $val eq '';
+    foreach my $line (split /\n/, $val) {
+	next if $line =~ /^\s*$/;
+	if ($line =~ /^\s*([^= \t]*)\s*=\s*(.*)/) {
+	    my $re = quotemeta($1);  my $props = $2;
+	    $re =~ s/\\\*/.*/g; # Convert glob regexp to perl regexp
+	    $re =~ s/\\\?/?/g;
+	    if ($filename =~ /$re/) {
+		while ($props =~ /([^;=]*)=([^;=]*)/g) {
+		    my $prop=$1; my $val=$2;
+		    DEBUG "autoprop: '$re' : '$prop'='$val'\n" if $self->debug;
+		    if (!$self->propget_string(filename=>$filename, propname=>$prop)) {
+			$self->propset_string(filename=>$filename, propname=>$prop, propval=>$val);
+		    }
+		}
+	    }
+	}
+    }
+}
+
+sub _fixprops_read_autoprops {
+    my $self = shift;
+    my $dir = shift;
+    my $val = $self->{_fixprops_read_autoprops_cache}{$dir};
+    if (!defined $val) {
+	$val = $self->propget_string(filename=>$dir, propname=>"tsvn:autoprops");
+	$val = "" if !defined $val;
+	$self->{_fixprops_read_autoprops_cache}{$dir} = $val;
+	DEBUG "_fixprops_autoprops($dir) => $val\n" if $self->debug;
+    }
+    return $val;
 }
 
 ######################################################################

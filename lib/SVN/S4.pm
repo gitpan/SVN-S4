@@ -29,7 +29,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.053';
+our $VERSION = '1.054';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -204,6 +204,7 @@ sub abs_filename {
 	DEBUG "    new filename $filename\n" if $self->debug;
     }
     $filename =~ s!/$!! if $filename ne "/";   # Svn gets upset at trailing /'s
+    $filename =~ s!/\.$!! if $filename ne "/.";
     return $filename;
 }
 
@@ -575,6 +576,13 @@ sub ensure_valid_date_string {
     my $date = shift;
     return if $date =~ /^\d{4}-\d{2}-\d{2}$/;	# allow 2006-01-01
     die "s4: %Error: date argument '$date' must have the form: 2006-01-01\n";
+}
+
+sub dir_uses_svn {
+    my $self = shift;
+    my $path = shift;
+    $self->{_dir_uses_svn_cache}{$path} ||= (-d "$path/.svn") ? 1:0;
+    return $self->{_dir_uses_svn_cache}{$path};
 }
 
 sub dir_uses_viewspec {

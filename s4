@@ -29,7 +29,7 @@ use vars qw ($VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.053';
+$VERSION = '1.054';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -47,8 +47,9 @@ our @Opt_CmdParamsEnd = ();   # options to put at the end
 # It's not a great solution, but I wasn't ready to rewrite all the parsing just
 # to allow somebody to type "svn -m MSG commit FILE".
 
-our $Opt_SvnBinary;
+our $Opt_Orig;
 our $Opt_Quiet;
+our $Opt_SvnBinary;
 our $Opt_Version;
 
 our $SvnOpt = new SVN::S4::Getopt;
@@ -58,6 +59,7 @@ if (! GetOptions (
 		  "help"	=> \&usage,
 		  "debug"	=> \&debug_option,
 		  "debugi=s"	=> \&debug_option,
+	  	  "orig!"	=> \$Opt_Orig,
 		  "svn=s"	=> \$Opt_SvnBinary,
 		  "quiet"	=> \&global_option_no_arg,
 		  "version"	=> \&global_option_no_arg,
@@ -77,6 +79,13 @@ push @Opt_CmdParams, @Opt_CmdParamsEnd;
 undef @Opt_CmdParamsEnd;
 DEBUG "Cmd: $Opt_Cmd\n" if is_debug;
 DEBUG "  Pos: '",join("' '",@Opt_CmdParams),"'\n" if is_debug;
+
+# Bypass?
+if ($Opt_Orig) {
+    our $s4 = new SVN::S4(SVN::S4::args_to_params());	# No arguments, in case parser broken
+    cmd_svn();
+    exit(0);
+}
 
 # Create one SVN::S4 object
 our %opts = $SvnOpt->hashCmd($Opt_Cmd, @Opt_CmdParams);
@@ -149,7 +158,7 @@ if ($Opt_Cmd eq "help-summary") {
 
 sub usage {
     print "Version $VERSION\n";
-    pod2usage(-verbose=>2, -exitval => 2);
+    pod2usage(-verbose=>2, -exitval=>2, -output=>\*STDOUT, -noperldoc=>1);
     exit (1);
 }
 
@@ -421,9 +430,13 @@ sub cmd_quick_commit {
     DEBUG "cmd_quick_commit ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 quick_commit: Unknown argument: $opts{unknown}[0]\n";
     DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
-    my $path = _clean_path($opts{path}[0]);
-    $path = "." if !defined $path;
-    $s4->quick_commit (path => $path,
+    my @paths;
+    if (!defined $opts{path}[0]) {
+	push @paths, ".";
+    } else {
+	@paths = map {_clean_path($_) } @{$opts{path}};
+    }
+    $s4->quick_commit (paths => \@paths,
 		       recurse => (!$opts{"--non-recursive"}),
 		       file => $opts{file},
 		       message => $opts{message},
@@ -434,6 +447,7 @@ sub cmd_quick_commit {
 sub cmd_snapshot {
     DEBUG "cmd_snapshot ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 snapshot: Unknown argument: $opts{unknown}[0]\n";
+    !defined($opts{path}[1]) or die "%Error: s4 snapshot: Only one path allowed: $opts{path}[1]\n";
     #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $path = _clean_path($opts{path}[0]);
     $path = "." if !defined $path;
@@ -445,6 +459,7 @@ sub cmd_snapshot {
 sub cmd_scrub {
     DEBUG "cmd_scrub ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 scrub: Unknown argument: $opts{unknown}[0]\n";
+    !defined($opts{path}[1]) or die "%Error: s4 scrub: Only one path allowed: $opts{path}[1]\n";
     #DEBUG "opts=",Dumper(\%opts), "\n" if is_debug;
     my $path = _clean_path($opts{path}[0]);
     my $rev = ($opts{revision}[0]||$opts{pathrev}[0]);
@@ -632,10 +647,17 @@ directory at any location.
 
 =head2 fixprop
 
-Processes all files and directories passed as arguments.  Any .cvsignore or
-.gitignore files will be read and set their directory's svn:ignore
-property.  Any file which contains a CVS metacomment, and which do not have
-a svn:keyword property will have the svn:keyword property added.
+Processes all files and directories passed as arguments.
+
+* Any .cvsignore or .gitignore files will be read and set their directory's
+svn:ignore property. (See below for the format of .cvsignore or
+.gitignore).
+
+* Any non-binary file which contains a CVS metacomment, and which do not
+have a svn:keyword property will have the svn:keyword property added.
+
+* Any tsvn:autoprops property on a parent directory will be applied to all
+files that have no property of the same name already set.
 
 With -N or --non-recursive, don't recurse across directories.
 
@@ -666,7 +688,7 @@ not supported in s4 views, as SVN creates many extranious svn:mergeinfo
 properties.  Instead you should checkout a non-viewed area, and merge
 there.
 
-=head2 quick-commit|qci PATH
+=head2 quick-commit|qci PATH...
 
 s4 quick-commit, or "qci" for short, performs a commit of the current tree.
 Unlike the normal commit command, qci will not create lock files, and so
@@ -780,6 +802,19 @@ area, and stored in the top level .svn directory.
 
 Displays this message and program version and exits.
 
+=item --orig
+
+Pass all commands through to the original version of svn.  Useful when svn
+has been aliased to a different command.
+
+=item --svn I<name>
+
+Name of svn executable, or "svn" if not specified.  See also S4_SVN.
+
+=item --version
+
+Displays program version and exits.
+
 =back
 
 =head1 VIEWSPEC FILES
@@ -851,6 +886,10 @@ some of its view commands.
 =item .cvsignore, .gitignore
 
 Used by the fixprop command to specify the contents for the svn:ignore property.
+
+The contents "[recursive]" indicates that everything following that tag
+until the end of the file should be applied to all directories underneath
+this one.
 
 =item .svn/workprops
 

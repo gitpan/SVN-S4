@@ -29,7 +29,7 @@ use strict;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.054';
+our $VERSION = '1.055';
 
 # SVN::Client methods
 #       $ctx->add($path, $recursive, $pool);
@@ -578,6 +578,20 @@ sub ensure_valid_date_string {
     die "s4: %Error: date argument '$date' must have the form: 2006-01-01\n";
 }
 
+sub dir_top_svn {
+    my $self = shift;
+    my $path = shift;
+    # Return highest .svn directory, for 'update --top'
+    $path = $self->abs_filename($path);
+    for (my $updir = $path; 1;) {
+	$updir =~ m!(.*)/([^/]+)$! or last;
+	$updir = $1;
+	$self->dir_uses_svn($updir) or last;
+	$path = $updir;
+    }
+    return $path;
+}
+
 sub dir_uses_svn {
     my $self = shift;
     my $path = shift;
@@ -687,7 +701,7 @@ Create a new SVN::S4 object.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2002-2011 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2013 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

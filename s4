@@ -29,7 +29,7 @@ use vars qw ($VERSION);
 #======================================================================
 # main
 
-$VERSION = '1.054';
+$VERSION = '1.055';
 
 autoflush STDOUT 1;
 autoflush STDERR 1;
@@ -138,6 +138,8 @@ if ($Opt_Cmd eq "help-summary") {
     cmd_scrub();
 } elsif ($Opt_Cmd eq "snapshot") {
     cmd_snapshot();
+} elsif ($Opt_Cmd eq "status") {
+    cmd_status();
 } elsif ($Opt_Cmd eq "switch") {
     cmd_switch();
 } elsif ($Opt_Cmd eq "update") {
@@ -274,7 +276,10 @@ sub cmd_fixprop {
 	$s4->fixprops(filename=>_clean_path($filename),
 		      # --recursive is default, so only check for non-recursive
 		      recurse=>(!$opts{"--non-recursive"}),
-		      personal=>$opts{"--personal"});
+		      personal=>$opts{"--personal"},
+		      autoprops=>(!$opts{"--no-autoprops"}),
+		      ignores=>(!$opts{"--no-ignores"}),
+		      keywords=>(!$opts{"--no-keywords"}),);
     }
 }
 
@@ -290,10 +295,28 @@ sub cmd_info_switches {
 sub cmd_update {
     DEBUG "cmd_update ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
     !$opts{unknown} or die "%Error: s4 update: Unknown argument: $opts{unknown}[0]\n";
+    @Opt_CmdParams = $SvnOpt->stripOneArg('--top',@Opt_CmdParams);
     # If no paths specified, update the current directory.
+    ($opts{"--top"} && $opts{path}[0])
+	and die "s4: %Error: s4 update with both path and --top is contradictory\n";
     $s4->update (revision=>($opts{revision}[0]||$opts{pathrev}[0]),
 		 paths=>_clean_path($opts{path}),
+		 top => $opts{"--top"},
 		 fallback_cmd=>raw_svn_command());
+}
+
+sub cmd_status {
+    DEBUG "cmd_status ",join(' ',@Opt_CmdParams),"\n"  if is_debug;
+    !$opts{unknown} or die "%Error: s4 status: Unknown argument: $opts{unknown}[0]\n";
+    @Opt_CmdParams = $SvnOpt->stripOneArg('--top',@Opt_CmdParams);
+    # If no paths specified, update the current directory.
+    if ($opts{"--top"}) {
+	$opts{path}[0] and die "s4: %Error: s4 update with both path and --top is contradictory\n";
+        my $dir = $s4->dir_top_svn(".");
+	push @{$opts{path}}, $dir;
+	push @Opt_CmdParams, $dir;
+    }
+    cmd_svn();
 }
 
 sub cmd_switch {
@@ -649,15 +672,17 @@ directory at any location.
 
 Processes all files and directories passed as arguments.
 
-* Any .cvsignore or .gitignore files will be read and set their directory's
-svn:ignore property. (See below for the format of .cvsignore or
-.gitignore).
+* Unless --no-ignores is used, any .cvsignore or .gitignore files will be
+read and set their directory's svn:ignore property. (See below for the
+format of .cvsignore or .gitignore).
 
-* Any non-binary file which contains a CVS metacomment, and which do not
-have a svn:keyword property will have the svn:keyword property added.
+* Unless --no-keywords is used, any non-binary file which contains a CVS
+metacomment, and which do not have a svn:keyword property will have the
+svn:keyword property added.
 
-* Any tsvn:autoprops property on a parent directory will be applied to all
-files that have no property of the same name already set.
+* Unless --no-autoprops is used, any tsvn:autoprops property on a parent
+directory will be applied to all files that have no property of the same
+name already set.
 
 With -N or --non-recursive, don't recurse across directories.
 
@@ -717,6 +742,13 @@ very conservative about erasing a file or directory that it is not SURE is
 checked in already.  But this command is not; it's happy to blow away the
 changes in your working copy...in fact that's its primary job.
 
+=head2 status [--top]
+
+With --top, update the highest subversion directory found at or above the
+current directory, rather than the current directory itself.
+
+Otherwise s4 status behaves exactly the same way as svn status.
+
 =head2 snapshot
 
 s4 snapshot generates a compact patch file that describes how to reproduce a
@@ -763,7 +795,7 @@ Example of making a snapshot and restoring:
    bash /tmp/snapshot
 
 
-=head2 update
+=head2 update [--top]
 
 s4 update behaves exactly the same way as svn checkout, unless the
 top directory that you update contains a file called Project.viewspec.
@@ -773,6 +805,9 @@ If Project.viewspec is present, s4 does the steps described in the
 In most updates, the viewspec file has not changed drastically, so there is
 no need to redo the svn switches, and s4 will do svn update.  But if the
 tree structure changes, s4 will redo the switch commands.
+
+With --top, update the highest subversion directory found at or above the
+current directory, rather than the current directory itself.
 
 =head2 workpropdel I<propname>
 
@@ -950,7 +985,7 @@ newer versions will probably break.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2011 by Bryce Denney and Wilson Snyder.  This package is
+Copyright 2005-2013 by Bryce Denney and Wilson Snyder.  This package is
 free software; you can redistribute it and/or modify it under the terms of
 either the GNU Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

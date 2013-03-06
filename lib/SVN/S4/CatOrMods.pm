@@ -13,7 +13,7 @@ use vars qw($AUTOLOAD);
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.054';
+our $VERSION = '1.055';
 
 #######################################################################
 #######################################################################
@@ -121,7 +121,7 @@ Cat or show modifications for the specified file.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2009-2011 by Wilson Snyder.  This package is free software; you
+Copyright 2009-2013 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

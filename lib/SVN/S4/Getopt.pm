@@ -13,7 +13,7 @@ use Data::Dumper;
 ######################################################################
 #### Configuration Section
 
-our $VERSION = '1.054';
+our $VERSION = '1.055';
 
 our %_Aliases =
     (
@@ -602,6 +602,8 @@ our %_Args =
 	       .' PATH...')},
   'status'	=> {
       args => (''
+	       .' [--top]'			# S4 addition
+	       #
 	       .' [--changelist ARG]'
 	       .' [--depth ARG]'		# 1.6
 	       .' [--ignore-externals]'
@@ -659,6 +661,8 @@ our %_Args =
   'update'	=> {
       s4_changed => 1,
       args => (''
+	       .' [--top]'			# S4 addition
+	       #
 	       .' [--accept ARG]'
 	       .' [--changelist ARG]'
 	       .' [--depth ARG]'		# 1.6
@@ -693,6 +697,9 @@ our %_Args =
 	       .' [-N|--non-recursive]'
 	       .' [--dry-run]'
 	       .' [--personal]'
+	       .' [--no-autoprops]'
+	       .' [--no-keywords]'
+	       .' [--no-ignores]'
 	       .' [PATH...]')},
   'help-summary' => {
       s4_addition => 1,
@@ -1158,7 +1165,7 @@ Return the option list, with the specified matching argument removed.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2002-2011 by Wilson Snyder.  This package is free software; you
+Copyright 2002-2013 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

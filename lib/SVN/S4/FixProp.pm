@@ -15,7 +15,7 @@ use vars qw($AUTOLOAD);
 
 use SVN::S4::Path;
 
-our $VERSION = '1.054';
+our $VERSION = '1.055';
 
 # Basenames we should ignore, because they contain large files of no relevance
 our %_SkipBasenames = (
@@ -73,8 +73,11 @@ sub fixprops {
     my $self = shift;
     my %params = (#filename=>,
 		  keyword_propval => 'author date id revision',
-		  recurse => 1,
 		  personal => undef,
+		  autoprops => 1,
+		  ignores => 1,
+		  keywords => 1,
+		  recurse => 1,
 		  @_);
 
     DEBUG "fixprops (filename=>$params{filename})\n" if $self->debug;
@@ -95,7 +98,9 @@ sub _fixprops_recurse {
 	if (!-r "$dir/.svn") {
 	    # silently ignore a non a subversion directory
 	} else {
-	    $self->_fixprops_add_ignore($dir);
+	    if ($param->{ignores}) {
+		$self->_fixprops_add_ignore($dir);
+	    }
 	    my $dh = new IO::Dir $dir or die "s4: %Error: Could not directory $dir.\n";
 	    while (defined (my $basefile = $dh->read)) {
 		next if $basefile eq '.' || $basefile eq '..';
@@ -117,7 +122,8 @@ sub _fixprops_recurse {
     }
     else {
 	# File
-	if (SVN::S4::FixProp::file_has_keywords($filename)) {
+	if ($param->{keywords}
+	    && SVN::S4::FixProp::file_has_keywords($filename)) {
 	    if ($self->file_url(filename=>$filename)
 		&& !defined ($self->propget_string(filename=>$filename,
 						   propname=>"svn:keywords"))
@@ -127,7 +133,10 @@ sub _fixprops_recurse {
 				      propval=>$param->{keyword_propval});
 	    }
 	}
-	$self->_fixprops_autoprops($filename);
+	if ($param->{autoprops}
+	    && $self->file_url(filename=>$filename, assert_exists=>0)) {
+	    $self->_fixprops_autoprops($filename);
+	}
     }
 }
 
@@ -149,6 +158,7 @@ sub _fixprops_add_ignore {
 	$ignores =~ s/[ \t\n\r\f]+/\n/g;
 	$ignores =~ s/^\n+//g;
 	$ignores =~ s/\n\n+/\n/g;
+	$ignores =~ s!^/!!g; $ignores =~ s!\n/!\n!g;  # gitignore prepends / to mean current dir
 	$self->propset_string(filename=>$dir, propname=>"svn:ignore", propval=>$ignores);
     }
 }
@@ -275,7 +285,7 @@ keywords that need repair.
 
 The latest version is available from CPAN and from L<http://www.veripool.org/>.
 
-Copyright 2005-2011 by Wilson Snyder.  This package is free software; you
+Copyright 2005-2013 by Wilson Snyder.  This package is free software; you
 can redistribute it and/or modify it under the terms of either the GNU
 Lesser General Public License Version 3 or the Perl Artistic License Version 2.0.
 

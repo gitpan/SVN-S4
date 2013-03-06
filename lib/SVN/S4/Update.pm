@@ -17,7 +17,7 @@ use SVN::S4;
 use SVN::S4::Debug qw (DEBUG is_debug);
 use SVN::S4::Path;
 
-our $VERSION = '1.054';
+our $VERSION = '1.055';
 our $Info = 1;
 
 
@@ -37,10 +37,20 @@ sub update {
     my %params = (#revision=>,		# NUM if user typed -rNUM, otherwise undef
                   #paths=>,		#listref
 		  #fallback_cmd=>,	#listref
+		  #top=>		#boolean
                   @_);
     DEBUG "update: my params are: ", Dumper(\%params), "\n" if $self->debug;
     my @paths = @{$params{paths}} if $params{paths};
-    push @paths, "." if !@paths;
+    my @add_cmd;
+    if (!@paths) {
+	if ($params{top}) {
+	    my $dir = $self->dir_top_svn(".");
+	    push @paths, $dir;
+	    push @add_cmd, $dir;
+	} else {
+	    push @paths, ".";
+	}
+    }
     if (!$params{fallback_cmd}) {  # used when called from within S4.
 	die "s4: %Error: s4 update needs revision" unless defined $params{revision};
 	my @cmd = (split(/\s+/,$self->{svn_binary}), 'update', @paths);
@@ -48,6 +58,7 @@ sub update {
 	push @cmd, ('--quiet') if $self->quiet;
 	$params{fallback_cmd} = \@cmd;
     }
+    push @{$params{fallback_cmd}}, @add_cmd;
     if ($#paths > 0) {
 	#FIXME if any has a viewspec, barf.
         # punt on multiple params for now.

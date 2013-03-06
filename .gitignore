@@ -7,3 +7,4 @@ test_dir
 *.bs
 *.old
 *.bak
+MYMETA.*

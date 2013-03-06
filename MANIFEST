@@ -34,6 +34,7 @@ t/30_config.t
 t/50_makerepo.dump
 t/50_makerepo.t
 t/80_s4.t
+t/81_s4_update.t
 t/83_s4_scrub.t
 t/84_s4_workprop.t
 t/85_s4_help.t
